@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from "react";
-import { listen } from "@tauri-apps/api/event";
 import { useAppShortcuts } from "../hooks/useAppShortcuts";
 
 export function SoundButton() {

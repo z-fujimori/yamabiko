@@ -1,4 +1,3 @@
-import React from 'react'
 import { SoundButton } from './MainButton'
 
 const MainView = () => {
@@ -7,6 +6,7 @@ const MainView = () => {
       <h1 className="text-xl font-bold mb-2">Welcome to yamabiko.app</h1>
       <SoundButton />
       <p className="text-sm mt-2">※ハウリング防止のためイヤホン推奨</p>
+      
     </main>
   )
 }
