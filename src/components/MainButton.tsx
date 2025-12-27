@@ -13,8 +13,7 @@ export function SoundButton() {
 
     const stream = await navigator.mediaDevices.getUserMedia({
       audio: {
-        // スピーカーから出すなら true 推奨（遅延は少し増えることあり）
-        echoCancellation: true,
+        echoCancellation: true,  // スピーカーから出すなら true 推奨（遅延は少し増えることあり）
         noiseSuppression: false,
         autoGainControl: false,
       },
@@ -88,8 +87,8 @@ export function SoundButton() {
       onClick={toggleMicThrough}
       disabled={busy}
       style={{
-        width: 120,
-        height: 120,
+        width: 80,
+        height: 80,
         borderRadius: "50%",
         border: "none",
         fontSize: 24,
