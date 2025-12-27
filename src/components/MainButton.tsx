@@ -1,12 +1,15 @@
 import { useEffect, useRef, useState } from "react";
+import { listen } from "@tauri-apps/api/event";
+import { useAppShortcuts } from "../hooks/useAppShortcuts";
 
 export function SoundButton() {
   const [isOn, setIsOn] = useState(false);
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState(false);  // 処理中フラグ buuton連打防止
 
   const ctxRef = useRef<AudioContext | null>(null);
   const sourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
 
   async function startMicThrough() {
     if (ctxRef.current) return; // すでに開始済みなら何もしない
@@ -59,7 +62,7 @@ export function SoundButton() {
 
   async function toggleMicThrough() {
     if (busy) return;
-    setBusy(true);
+    	setBusy(true);
     try {
       if (ctxRef.current) {
         await stopMicThrough();
@@ -80,12 +83,20 @@ export function SoundButton() {
       stopMicThrough();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, []);	
+
+	// キーボードショートカット(Enterで切り替え))
+	useAppShortcuts({
+    onToggle: () => toggleMicThrough(),
+    // onOff: () => setIsOn(false),
+  });
+
 
   return (
     <button
+			ref={buttonRef}
       onClick={toggleMicThrough}
-      disabled={busy}
+      // disabled={busy}
       style={{
         width: 80,
         height: 80,
