@@ -1,10 +1,14 @@
-.logo.vite:hover {
+@import "tailwindcss";
+
+
+/* .logo.vite:hover {
   filter: drop-shadow(0 0 2em #747bff);
 }
 
 .logo.react:hover {
   filter: drop-shadow(0 0 2em #61dafb);
 }
+  */
 :root {
   font-family: Inter, Avenir, Helvetica, Arial, sans-serif;
   font-size: 16px;
@@ -21,6 +25,7 @@
   -webkit-text-size-adjust: 100%;
 }
 
+
 .container {
   margin: 0;
   padding-top: 10vh;
@@ -29,7 +34,7 @@
   justify-content: center;
   text-align: center;
 }
-
+/*
 .logo {
   height: 6em;
   padding: 1.5em;
@@ -113,4 +118,4 @@ button {
   button:active {
     background-color: #0f0f0f69;
   }
-}
+} */
