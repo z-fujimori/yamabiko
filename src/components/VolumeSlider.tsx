@@ -7,7 +7,7 @@ const VolumeSlider = (config: {
 }) => {
   return (
     <div>
-              <label
+      <label
         style={{
           display: "grid",
           gap: 6,
@@ -16,7 +16,7 @@ const VolumeSlider = (config: {
           userSelect: "none",
         }}
       >
-        <div style={{ display: "flex", justifyContent: "space-between" }}>
+        <div className='text-xs' style={{ display: "flex", justifyContent: "space-between" }}>
           <span>Volume</span>
           <span>{Math.round(config.volume * 100)}%</span>
         </div>
