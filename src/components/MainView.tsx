@@ -13,9 +13,9 @@ const MainView = () => {
       {/* <h1 className="text-xl font-bold mb-2">Welcome to yamabiko.app</h1> */}
       <SoundButton isOn={isOn} setIsOn={setIsOn} volume={volume} delaySec={delaySec} />
       <VolumeSlider volume={volume} setVolume={setVolume} sliderEnabled={isOn} />
-      <DelaySlider delaySec={delaySec} setDelaySec={setDelaySec} disabled={!isOn} />
+      <DelaySlider delaySec={delaySec} setDelaySec={setDelaySec} disabled={isOn} />
       {/* <p className="text-sm mt-2">※ハウリング防止のためイヤホン推奨</p> */}
-      
+    
     </main>
   )
 }
