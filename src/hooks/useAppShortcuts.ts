@@ -13,6 +13,11 @@ export function useAppShortcuts({ onToggle, onOff }: Options) {
         onToggle();
       }
 
+      if (e.key === " ") {
+        e.preventDefault();
+        onToggle();
+      }
+
       if (e.key === "Escape") {
         e.preventDefault();
         onOff?.();
