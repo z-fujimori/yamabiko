@@ -19,7 +19,7 @@ const HelpModal = () => {
         bg-white opacity-20
       '
       onClick={closeModal}>
-
+        todo: 説明
     </div>
   )
 }
