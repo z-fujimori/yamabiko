@@ -12,7 +12,6 @@ const MainView = () => {
   return (
     <main className="container flex flex-col items-center justify-center min-h-screen">
       {/* <h1 className="text-xl font-bold mb-2">Welcome to yamabiko.app</h1> */}
-      {/* <HelpModal /> */}
       <IconQuestion />
       <SoundButton isOn={isOn} setIsOn={setIsOn} volume={volume} delaySec={delaySec} />
       <VolumeSlider volume={volume} setVolume={setVolume} sliderEnabled={isOn} />
