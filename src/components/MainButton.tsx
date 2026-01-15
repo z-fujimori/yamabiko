@@ -1,84 +1,119 @@
 import { useEffect, useRef, useState } from "react";
 import { useAppShortcuts } from "../hooks/useAppShortcuts";
 
-export function SoundButton(config: {
-  isOn: boolean,
-  setIsOn: React.Dispatch<React.SetStateAction<boolean>>,
-  volume: number,
-	delaySec: number
-}) {
-  
-  const [busy, setBusy] = useState(false);  // 処理中フラグ buuton連打防止
+type Props = {
+  isOn: boolean;
+  setIsOn: React.Dispatch<React.SetStateAction<boolean>>;
+  volume: number;
+  delaySec: number;
+};
+
+function isDomException(err: unknown): err is DOMException {
+  return typeof err === "object" && err !== null && "name" in err;
+}
+
+export function SoundButton(config: Props) {
+  const [busy, setBusy] = useState(false); // 連打防止
+  const [error, setError] = useState<string | null>(null);
 
   const ctxRef = useRef<AudioContext | null>(null);
   const sourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
-  const buttonRef = useRef<HTMLButtonElement>(null);
   const gainRef = useRef<GainNode | null>(null);
-	const delayRef = useRef<DelayNode | null>(null);  // delayノード用
+  const delayRef = useRef<DelayNode | null>(null);
 
   async function startMicThrough() {
-    if (ctxRef.current) return; // すでに開始済みなら何もしない
+console.log("isSecureContext", window.isSecureContext);
+console.log("mediaDevices", navigator.mediaDevices);
+console.log("getUserMedia", navigator.mediaDevices?.getUserMedia);
 
-    // try{
-      const stream = await navigator.mediaDevices.getUserMedia({
+
+    if (ctxRef.current) return; // すでに開始済み
+    setError(null);
+
+    // 重要：ここが「macOSの設定 > マイク」に出現するトリガー
+    let stream: MediaStream;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({
         audio: {
-          echoCancellation: true,  // スピーカーから出すなら true 推奨（遅延は少し増えることあり）
+          echoCancellation: true,
           noiseSuppression: false,
           autoGainControl: false,
         },
       });
-      streamRef.current = stream;
+    } catch (err) {
+      // macOSでは拒否後に再ダイアログは出ないので、ここで案内する
+      if (isDomException(err)) {
+        if (err.name === "NotAllowedError" || err.name === "SecurityError") {
+          setError(
+            "マイクの使用が許可されていません。macOSの「システム設定 → プライバシーとセキュリティ → マイク」でこのアプリをONにしてください。"
+          );
+        } else if (err.name === "NotFoundError") {
+          setError("マイクデバイスが見つかりません。マイクが接続されているか確認してください。");
+        } else {
+          setError(`マイクの取得に失敗しました（${err.name}）。`);
+        }
+      } else {
+        setError("マイクの取得に失敗しました。");
+      }
 
-      const ctx = new AudioContext({ latencyHint: "interactive" });
-      ctxRef.current = ctx;
+      // 中途半端な状態が残らないように
+      await stopMicThrough();
+      config.setIsOn(false);
+      return;
+    }
 
-      // iOS/Safari等も考慮して念のため
-      if (ctx.state === "suspended") await ctx.resume();
+    streamRef.current = stream;
 
-      const source = ctx.createMediaStreamSource(stream);
-      sourceRef.current = source;
+    const ctx = new AudioContext({ latencyHint: "interactive" });
+    ctxRef.current = ctx;
+    if (ctx.state === "suspended") await ctx.resume();
 
-			const delay = ctx.createDelay(2.5);   // 最大遅延 5秒（必要に応じて）
-			delay.delayTime.value = config.delaySec; // 初期値
-			delayRef.current = delay;
+    const source = ctx.createMediaStreamSource(stream);
+    sourceRef.current = source;
 
-      const gain = ctx.createGain();
-      gain.gain.value = config.volume;
-      gainRef.current = gain;
+    // 最大遅延秒（必要に応じて）※ 2.5 = 2.5秒
+    const delay = ctx.createDelay(2.5);
+    delay.delayTime.value = config.delaySec;
+    delayRef.current = delay;
 
-      // 接続：source → delay → gain → destination
-      source.connect(delay);
-      delay.connect(gain);
-      gain.connect(ctx.destination);
+    const gain = ctx.createGain();
+    gain.gain.value = config.volume;
+    gainRef.current = gain;
 
-      // ★ 成功したときだけON
-      config.setIsOn(true);
-    // } catch (err) {
-    //   // マイクの使用が許可されなかった等のエラー処理
-    //   await stopMicThrough();  // ← 中途半端な状態を消す
-    //   config.setIsOn(false);  // ← ONにしない
-    //   // setError("マイクの使用が許可されていません");
-    // }
+    // 接続：source → delay → gain → destination
+    source.connect(delay);
+    delay.connect(gain);
+    gain.connect(ctx.destination);
+
+    config.setIsOn(true);
   }
 
   async function stopMicThrough() {
+    // 接続を先に切る（順番が大事）
     try {
       sourceRef.current?.disconnect();
     } catch {}
     sourceRef.current = null;
 
     try {
+      delayRef.current?.disconnect();
+    } catch {}
+    delayRef.current = null;
+
+    try {
       gainRef.current?.disconnect();
     } catch {}
     gainRef.current = null;
 
+    // マイク停止
     const stream = streamRef.current;
     if (stream) {
       for (const t of stream.getTracks()) t.stop();
     }
     streamRef.current = null;
 
+    // AudioContext close
     const ctx = ctxRef.current;
     ctxRef.current = null;
     if (ctx) {
@@ -86,12 +121,6 @@ export function SoundButton(config: {
         await ctx.close();
       } catch {}
     }
-
-		// delayノード切断
-		try {
-			delayRef.current?.disconnect();
-		} catch {}
-		delayRef.current = null;
   }
 
   async function toggleMicThrough() {
@@ -102,75 +131,82 @@ export function SoundButton(config: {
         await stopMicThrough();
         config.setIsOn(false);
       } else {
-        await startMicThrough(); // start側で成功時だけONになる
+        await startMicThrough(); // start側で成功時だけON
       }
     } finally {
       setBusy(false);
     }
   }
 
-  // コンポーネント破棄時に確実に止める
+  // 破棄時に停止
   useEffect(() => {
     return () => {
-      // fire-and-forget でもOK
       stopMicThrough();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);	
+  }, []);
 
-	// キーボードショートカット(Enterで切り替え))
-	useAppShortcuts({
+  // Enterで切り替え
+  useAppShortcuts({
     onToggle: () => toggleMicThrough(),
-    // onOff: () => setIsOn(false),
   });
 
+  // volume変更追従
   useEffect(() => {
-    if (!gainRef.current) return;
+    const gain = gainRef.current;
     const ctx = ctxRef.current;
-    const now = ctx ? ctx.currentTime : 0;
-    gainRef.current.gain.cancelScheduledValues(now);
-    gainRef.current.gain.setTargetAtTime(config.volume, now, 0.01);
+    if (!gain || !ctx) return;
+
+    const now = ctx.currentTime;
+    gain.gain.cancelScheduledValues(now);
+    gain.gain.setTargetAtTime(config.volume, now, 0.01);
   }, [config.volume]);
 
+  // 外部からOFFされたら止める
   useEffect(() => {
     if (!config.isOn && ctxRef.current) {
       stopMicThrough();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [config.isOn]);
 
-	// delay秒変更対応
-	useEffect(() => {
-		const delay = delayRef.current;
-		const ctx = ctxRef.current;
-		if (!delay || !ctx) return;
+  // delay秒変更追従（ノイズ防止でランプ）
+  useEffect(() => {
+    const delay = delayRef.current;
+    const ctx = ctxRef.current;
+    if (!delay || !ctx) return;
 
-		const now = ctx.currentTime;
-
-		// 急変でノイズが出るのを防ぐ（おすすめ）
-		delay.delayTime.cancelScheduledValues(now);
-		delay.delayTime.setValueAtTime(delay.delayTime.value, now);
-		delay.delayTime.linearRampToValueAtTime(config.delaySec, now + 0.05); // 50msで追従
-	}, [config.delaySec]);
+    const now = ctx.currentTime;
+    delay.delayTime.cancelScheduledValues(now);
+    delay.delayTime.setValueAtTime(delay.delayTime.value, now);
+    delay.delayTime.linearRampToValueAtTime(config.delaySec, now + 0.05);
+  }, [config.delaySec]);
 
   return (
-    <button
-			ref={buttonRef}
-      onClick={toggleMicThrough}
-      // disabled={busy}
-      style={{
-        width: 80,
-        height: 80,
-        borderRadius: "50%",
-        border: "none",
-        fontSize: 24,
-        fontWeight: "bold",
-        color: "white",
-        backgroundColor: config.isOn ? "#4caf50" : "#b0b0b0",
-        cursor: busy ? "not-allowed" : "pointer",
-        opacity: busy ? 0.7 : 1,
-      }}
-    >
-      {config.isOn ? "ON" : "OFF"}
-    </button>
+    <div style={{ display: "grid", gap: 8, justifyItems: "center" }}>
+      <button
+        onClick={toggleMicThrough}
+        style={{
+          width: 80,
+          height: 80,
+          borderRadius: "50%",
+          border: "none",
+          fontSize: 24,
+          fontWeight: "bold",
+          color: "white",
+          backgroundColor: config.isOn ? "#4caf50" : "#b0b0b0",
+          cursor: busy ? "not-allowed" : "pointer",
+          opacity: busy ? 0.7 : 1,
+        }}
+      >
+        {config.isOn ? "ON" : "OFF"}
+      </button>
+
+      {error && (
+        <div style={{ maxWidth: 360, fontSize: 12, opacity: 0.85, lineHeight: 1.4 }}>
+          {error}
+        </div>
+      )}
+    </div>
   );
 }
