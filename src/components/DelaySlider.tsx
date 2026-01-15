@@ -1,4 +1,4 @@
-import { useState } from "react";
+
 
 export function DelaySlider(props: {
   delaySec: number;
@@ -33,14 +33,6 @@ export function DelaySlider(props: {
           <span>Delay</span>
           <span>{delaySec.toFixed(1)}s</span>
         </div>
-{/* 
-        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, opacity: 0.5 }}>
-            <span>0.0</span>
-            <span>0.5</span>
-            <span>1.0</span>
-            <span>1.5</span>
-            <span>2.0</span>
-        </div> */}
       </label>
     </div>
   );

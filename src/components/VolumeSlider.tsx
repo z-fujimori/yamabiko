@@ -24,7 +24,7 @@ const VolumeSlider = (config: {
         <input
           type="range"
           min={0}
-          max={1}
+          max={1.5}
           step={0.05}
           value={config.volume}
           onChange={(e) => config.setVolume(Number(e.target.value))}
