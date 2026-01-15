@@ -19,8 +19,8 @@ const HelpModal = () => {
         bg-white opacity-30
       '
       onClick={closeModal}>
-        <img src="img/arrow.png" alt="Help" className='w-17 fixed top-10 right-24 rotate-205' />
-        <p className='fixed top-17 right-6 text-black font-bold'>
+        <img src="img/arrow.png" alt="Help" className='w-17 fixed top-10 right-23 rotate-205' />
+        <p className='fixed top-17 right-4 text-black font-bold'>
           ON/OFF切り替え
         </p>
 
