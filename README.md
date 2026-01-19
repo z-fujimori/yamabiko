@@ -4,6 +4,18 @@
 
 Tauri + React + TypeScript で構築されたクロスプラットフォーム対応アプリケーション。
 
+## ダウンロード方法
+
+最新版はこちらから入手できます：
+
+🔗 **[Releases ページへ](https://github.com/z-fujimori/yamabiko/releases)**
+
+### 対応プラットフォーム
+
+- **macOS** (Intel / Apple Silicon)
+<!-- - **Windows** (x64) -->
+
+最新リリースをダウンロードして実行してください。
 ## 🎯 主な機能
 
 - **マイク入力 → スピーカー出力**: Web Audio API を使用したリアルタイム音声処理
