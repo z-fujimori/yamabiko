@@ -1,7 +1,62 @@
-# Tauri + React + Typescript
+# 🎤 Yamabiko（やまびこ）
 
-This template should help get you started developing with Tauri, React and Typescript in Vite.
+**マイク入力をリアルタイムでスピーカーから出力するシンプルなアプリ**
 
-## Recommended IDE Setup
+Tauri + React + TypeScript で構築されたクロスプラットフォーム対応アプリケーション。
 
-- [VS Code](https://code.visualstudio.com/) + [Tauri](https://marketplace.visualstudio.com/items?itemName=tauri-apps.tauri-vscode) + [rust-analyzer](https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer)
+## 🎯 主な機能
+
+- **マイク入力 → スピーカー出力**: Web Audio API を使用したリアルタイム音声処理
+- **遅延調整（Delay）**: 出力にタイムラグを追加してハウリング軽減
+- **音量制御**: スライダーで出力レベルを調整
+- **キーボードショートカット**: Enter キーで ON/OFF 切替
+- **ヘルプモーダル**: 使用方法を確認できる「?」ボタン
+
+## ⚠️ 使用上の注意
+
+**ハウリング防止のため、イヤホンの使用を強く推奨します。**
+
+スピーカーとマイクが近い場合、音が増幅してハウリングが発生する可能性があります。
+
+## 🛠️ 技術スタック
+
+- **フロントエンド**: React 18 + TypeScript + Tailwind CSS
+- **デスクトップフレームワーク**: Tauri
+- **ビルドツール**: Vite
+- **状態管理**: Zustand
+- **音声処理**: Web Audio API
+
+
+## 🎮 操作方法
+
+| 操作 | 機能 |
+|------|------|
+| ON/OFF ボタン | マイク通しを有効/無効 |
+| Enter キー | ON/OFF 切替（ショートカット） |
+| 音量スライダー | 出力音量を調整（ON時のみ操作可） |
+| 遅延スライダー | 出力タイムラグを調整（ON時のみ操作可） |
+| ? ボタン | ヘルプモーダルを表示 |
+| Escape キー | モーダルを閉じる |
+
+## 📝 ライセンス
+
+MIT License
+
+## 💡 トラブルシューティング
+
+### マイク許可が出ない
+
+- **本番環境**: HTTPS 必須。HTTP では動作しません
+- **永続的な拒否**: ブラウザ設定からマイク許可を手動で変更してください
+  - Chrome/Edge: 設定 → プライバシーとセキュリティ → サイト設定 → マイク
+  - Firefox: アドレスバーの🔒 → サイト情報 → マイク
+  - Safari: 設定 → Webサイト → マイク
+
+### ハウリングが発生する
+
+- イヤホンを使用してください
+- 遅延（Delay）を大きめに設定してください
+- 音量を下げてください
+
+---
+
