@@ -3,7 +3,7 @@ export function CrayonBgDemo() {
     <div className="w-10/12 h-full m-auto flex items-center justify-center">
       {/* クレヨン背景 */}
       <div
-        className="relative overflow-hidden rounded-3xl p-3 shadow-lg"
+        className="relative overflow-hidden rounded-3xl p-2 shadow-lg"
         style={{
           backgroundColor: "#F3D37A",
           backgroundImage: [
@@ -24,7 +24,7 @@ export function CrayonBgDemo() {
         <div className="relative">
           <div className="flex items-center justify-center">
             <div className="rounded-2xl bg-white/70 p-3 backdrop-blur text-center">
-              <div className="text-sm text-neutral-800/70 leading-relaxed font-black">
+              <div className="text-xs text-neutral-800/70 leading-relaxed font-black">
                 ⚠️ハウリングの可能性があるのでイヤホン推奨<br />
                 EnterキーでON/OFF切替可能<br />
                 音量と遅延はON時のみ操作可能

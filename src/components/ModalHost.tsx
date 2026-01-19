@@ -1,5 +1,6 @@
 import { useUIStore } from "../store/uiStore";
 import HelpModal from "./HelpModal";
+import { SwipePages } from "./SwipePages";
 
 export function ModalHost() {
   const modal = useUIStore((s) => s.activeModal);
@@ -9,8 +10,8 @@ export function ModalHost() {
   switch (modal.type) {
     case "help":
       return <HelpModal />;
-    case "settings":
-      // return <SettingsModal />;
+    case "swipe":
+      return <SwipePages />;
       return null;
     case "import":
       // return <ImportModal />;
