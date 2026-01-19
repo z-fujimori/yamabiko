@@ -2,14 +2,14 @@
 import { create } from "zustand";
 
 type ModalType =
-  | { type: "settings" }
+  | { type: "swipe" }
   | { type: "import" }
   | { type: "help" }
   | null;
 
 type UIState = {
   activeModal: ModalType;
-  openSettings: () => void;
+  openSwipe: () => void;
   openImport: () => void;
   openHelp: () => void;
   closeModal: () => void;
@@ -18,8 +18,8 @@ type UIState = {
 export const useUIStore = create<UIState>((set) => ({
   activeModal: null,
 
-  openSettings: () =>
-    set({ activeModal: { type: "settings" } }),
+  openSwipe: () =>
+    set({ activeModal: { type: "swipe" } }),
 
   openImport: () =>
     set({ activeModal: { type: "import" } }),
