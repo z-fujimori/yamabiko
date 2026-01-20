@@ -1,4 +1,7 @@
-export function CrayonBgDemo(props: {text: string}) {
+export function CrayonBgDemo(props: {text: string[]}) {
+	const { text } = props;
+	const lines = text.join('\n');
+
   return (
     <div 
         className="w-11/12 h-full m-auto flex items-center justify-center"
@@ -26,10 +29,10 @@ export function CrayonBgDemo(props: {text: string}) {
         {/* 中身 */}
         <div className="relative">
           <div className="flex items-center justify-center">
-            <div className="rounded-2xl bg-white/70 p-3 backdrop-blur text-center">
-              <div className="text-sm text-neutral-800/70 leading-relaxed font-black">
-                {props.text.split('\n').map((line, i) => (
-                  <div key={i}>{line}</div>
+            <div className="rounded-2xl bg-white/70 p-3 backdrop-blur text-center flex items-center justify-center">
+              <div className="text-sm text-neutral-800/70 leading-relaxed font-black w-70 h-13 flex flex-col items-center justify-center">
+                {text.map((line, index) => (
+                  <p key={index}>{line}</p>
                 ))}
               </div>
             </div>

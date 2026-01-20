@@ -150,7 +150,7 @@ export function HorizontalSlideModal({
                 e.stopPropagation();
                 setIndex((v) => Math.max(0, v - 1));
               }}
-              className="absolute left-14 top-26 -translate-y-1/2 z-10 bg-white/80 hover:bg-white text-gray-800 rounded-full w-8 h-8 flex items-center justify-center transition hover:scale-110 active:scale-95"
+              className="absolute left-14 top-33 -translate-y-1/2 z-10 bg-white/80 hover:bg-white text-gray-800 rounded-full w-8 h-8 flex items-center justify-center transition hover:scale-110 active:scale-95"
               aria-label="Previous page"
             >
               ‹
@@ -164,7 +164,7 @@ export function HorizontalSlideModal({
                 e.stopPropagation();
                 setIndex((v) => Math.min(pageCount - 1, v + 1));
               }}
-              className="absolute right-14 top-26 -translate-y-1/2 z-10 bg-white/80 hover:bg-white text-gray-800 rounded-full w-8 h-8 flex items-center justify-center transition hover:scale-110 active:scale-95"
+              className="absolute right-14 top-33 -translate-y-1/2 z-10 bg-white/80 hover:bg-white text-gray-800 rounded-full w-8 h-8 flex items-center justify-center transition hover:scale-110 active:scale-95"
               aria-label="Next page"
             >
               ›
