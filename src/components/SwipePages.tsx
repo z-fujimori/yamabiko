@@ -1,30 +1,28 @@
-import { useState } from "react";
+import React from "react";
+import { HorizontalSlideModal } from "./HorizontalSlideModal";
+import { CrayonBgDemo } from "./CrayonBgDemo";
 
 export function SwipePages() {
-  const [page, setPage] = useState(0);
+  const [open, setOpen] = React.useState(false);
 
   return (
-    <div className="overflow-hidden h-screen">
-      <div
-        className="flex h-full transition-transform duration-300"
-        style={{ transform: `translateX(-${page * 100}vw)` }}
+    <div className="p-6">
+      <button
+        className="rounded-xl bg-black px-4 py-2 text-white"
+        onClick={() => setOpen(true)}
       >
-        {["Page 1", "Page 2", "Page 3"].map((p, i) => (
-          <div
-            key={i}
-            className="w-screen flex items-center justify-center text-3xl"
-          >
-            {p}
-          </div>
-        ))}
-      </div>
+        Open
+      </button>
 
-      {/* 操作ボタン */}
-      <div className="fixed bottom-4 left-1/2 -translate-x-1/2 flex gap-2">
-        <button onClick={() => setPage(0)}>1</button>
-        <button onClick={() => setPage(1)}>2</button>
-        <button onClick={() => setPage(2)}>3</button>
-      </div>
+      <HorizontalSlideModal
+        open={open}
+        onClose={() => setOpen(false)}
+        title="2ページモーダル"
+        pages={[
+          <CrayonBgDemo text="⚠️ハウリングの可能性があるのでイヤホン推奨" />,
+          <CrayonBgDemo text="EnterキーでON/OFF切替可能\n音量と遅延はON時のみ操作可能" />,
+        ]}
+      />
     </div>
   );
 }

@@ -3,6 +3,7 @@ import { SoundButton } from './MainButton'
 import VolumeSlider from './VolumeSlider';
 import { DelaySlider } from './DelaySlider';
 import IconQuestion from './IconQuestion';
+import { SwipePages } from './SwipePages';
 
 const MainView = () => {
   const [isOn, setIsOn] = useState(false);
@@ -17,6 +18,8 @@ const MainView = () => {
       <VolumeSlider volume={volume} setVolume={setVolume} sliderEnabled={isOn} />
       <DelaySlider delaySec={delaySec} setDelaySec={setDelaySec} disabled={isOn} />
       {/* <p className="text-sm mt-2">※ハウリング防止のためイヤホン推奨</p> */}
+
+      <SwipePages />
     
     </main>
   )

@@ -1,6 +1,8 @@
-export function CrayonBgDemo() {
+export function CrayonBgDemo(props: {text: string}) {
   return (
-    <div className="w-10/12 h-full m-auto flex items-center justify-center">
+    <div 
+        className="w-11/12 h-full m-auto flex items-center justify-center"
+    >
       {/* クレヨン背景 */}
       <div
         className="relative overflow-hidden rounded-3xl p-2 shadow-lg"
@@ -18,16 +20,17 @@ export function CrayonBgDemo() {
           ].join(", "),
           backgroundBlendMode: "multiply, normal, multiply, normal, multiply",
         }}
+        onClick={(e) => e.stopPropagation()}
       >
 
         {/* 中身 */}
         <div className="relative">
           <div className="flex items-center justify-center">
             <div className="rounded-2xl bg-white/70 p-3 backdrop-blur text-center">
-              <div className="text-xs text-neutral-800/70 leading-relaxed font-black">
-                ⚠️ハウリングの可能性があるのでイヤホン推奨<br />
-                EnterキーでON/OFF切替可能<br />
-                音量と遅延はON時のみ操作可能
+              <div className="text-sm text-neutral-800/70 leading-relaxed font-black">
+                {props.text.split('\n').map((line, i) => (
+                  <div key={i}>{line}</div>
+                ))}
               </div>
             </div>
           </div>
