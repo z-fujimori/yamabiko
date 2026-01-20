@@ -11,7 +11,7 @@ const MainView = () => {
   const [delaySec, setDelaySec] = useState(0.0);
 
   return (
-    <main className="container flex flex-col items-center justify-center min-h-screen">
+    <main className="container flex flex-col items-center justify-center min-h-screen select-none">
       {/* <h1 className="text-xl font-bold mb-2">Welcome to yamabiko.app</h1> */}
       <IconQuestion />
       <SoundButton isOn={isOn} setIsOn={setIsOn} volume={volume} delaySec={delaySec} />
