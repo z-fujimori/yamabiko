@@ -9,10 +9,9 @@ export function ModalHost() {
 
   switch (modal.type) {
     case "help":
-      return <HelpModal />;
+      return <SwipePages />;
     case "swipe":
       return <SwipePages />;
-      return null;
     case "import":
       // return <ImportModal />;
       return null;

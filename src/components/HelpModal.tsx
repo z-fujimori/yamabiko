@@ -20,7 +20,7 @@ const HelpModal = () => {
         bg-black/50
       '
       onClick={closeModal}>
-        <CrayonBgDemo />
+        <CrayonBgDemo text={["⚠️ハウリングの可能性があるのでイヤホン推奨"]} />
     </div>
   )
 }

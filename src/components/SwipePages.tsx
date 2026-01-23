@@ -1,30 +1,22 @@
-import { useState } from "react";
+import React from "react";
+import { HorizontalSlideModal } from "./HorizontalSlideModal";
+import { CrayonBgDemo } from "./CrayonBgDemo";
+import { useUIStore } from "../store/uiStore";
 
 export function SwipePages() {
-  const [page, setPage] = useState(0);
+  const activeModal = useUIStore((s) => s.activeModal);
+  const closeModal = useUIStore((s) => s.closeModal);
+  const open = activeModal?.type === "help" || activeModal?.type === "swipe";
 
   return (
-    <div className="overflow-hidden h-screen">
-      <div
-        className="flex h-full transition-transform duration-300"
-        style={{ transform: `translateX(-${page * 100}vw)` }}
-      >
-        {["Page 1", "Page 2", "Page 3"].map((p, i) => (
-          <div
-            key={i}
-            className="w-screen flex items-center justify-center text-3xl"
-          >
-            {p}
-          </div>
-        ))}
-      </div>
-
-      {/* 操作ボタン */}
-      <div className="fixed bottom-4 left-1/2 -translate-x-1/2 flex gap-2">
-        <button onClick={() => setPage(0)}>1</button>
-        <button onClick={() => setPage(1)}>2</button>
-        <button onClick={() => setPage(2)}>3</button>
-      </div>
-    </div>
+    <HorizontalSlideModal
+      open={open}
+      onClose={closeModal}
+      title="ヘルプ"
+      pages={[
+        <CrayonBgDemo text={["⚠️ハウリングの可能性があるのでイヤホン推奨"]} />,
+        <CrayonBgDemo text={["EnterキーでON/OFF切替可能", "音量と遅延はON時のみ操作可能"]} />,
+      ]}
+    />
   );
 }
