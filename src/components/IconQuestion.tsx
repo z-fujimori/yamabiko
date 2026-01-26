@@ -10,7 +10,7 @@ const IconQuestion = () => {
             aria-label="Open help"
             onClick={openHelp}
             className="
-                fixed top-2 right-3
+                fixed bottom-3 right-3
                 w-7 h-7
                 rounded-full
                 border-2 border-gray-400
