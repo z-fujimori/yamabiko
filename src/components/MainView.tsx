@@ -3,7 +3,6 @@ import { SoundButton } from './MainButton'
 import VolumeSlider from './VolumeSlider';
 import { DelaySlider } from './DelaySlider';
 import IconQuestion from './IconQuestion';
-import { SwipePages } from './SwipePages';
 import { WindowPinButton } from './WindowPinButton';
 
 const MainView = () => {

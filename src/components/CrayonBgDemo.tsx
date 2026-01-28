@@ -1,6 +1,5 @@
 export function CrayonBgDemo(props: {text: string[]}) {
 	const { text } = props;
-	const lines = text.join('\n');
 
   return (
     <div 

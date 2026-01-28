@@ -1,5 +1,4 @@
 import { useUIStore } from "../store/uiStore";
-import HelpModal from "./HelpModal";
 import { SwipePages } from "./SwipePages";
 
 export function ModalHost() {
