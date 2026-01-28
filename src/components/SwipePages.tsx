@@ -1,4 +1,3 @@
-import React from "react";
 import { HorizontalSlideModal } from "./HorizontalSlideModal";
 import { CrayonBgDemo } from "./CrayonBgDemo";
 import { useUIStore } from "../store/uiStore";
