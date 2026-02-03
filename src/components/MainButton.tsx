@@ -42,6 +42,9 @@ console.log("getUserMedia", navigator.mediaDevices?.getUserMedia);
         },
       });
     } catch (err) {
+      if (isDomException(err)) {
+        console.error("name:", err.name, "message:", err.message);
+      }
       // macOSでは拒否後に再ダイアログは出ないので、ここで案内する
       if (isDomException(err)) {
         if (err.name === "NotAllowedError" || err.name === "SecurityError") {
