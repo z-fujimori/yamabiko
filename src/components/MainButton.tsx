@@ -47,11 +47,17 @@ console.log("getUserMedia", navigator.mediaDevices?.getUserMedia);
       }
       // macOSでは拒否後に再ダイアログは出ないので、ここで案内する
       if (isDomException(err)) {
-        if (err.name === "NotAllowedError" || err.name === "SecurityError") {
-          setError(
-            "マイクの使用が許可されていません。macOSの「システム設定 → プライバシーとセキュリティ → マイク」でこのアプリをONにしてください。"
-          );
-        } else if (err.name === "NotFoundError") {
+        // if (err.name === "NotAllowedError" || err.name === "SecurityError") {
+        if (err.name === "NotAllowedError") {
+          setError("NotAllowedError");
+          // setError(
+          //   "マイクの使用が許可されていません。macOSの「システム設定 > プライバシーとセキュリティ > マイク」でこのアプリをONにしてください。"
+          // );
+        }
+        else if (err.name === "SecurityError") {
+          setError("SecurityError");
+        }
+        else if (err.name === "NotFoundError") {
           setError("マイクデバイスが見つかりません。マイクが接続されているか確認してください。");
         } else {
           setError(`マイクの取得に失敗しました（${err.name}）。`);
