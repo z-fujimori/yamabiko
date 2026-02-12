@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import { useAppShortcuts } from "../hooks/useAppShortcuts";
 
 type Props = {
+  err: string | null;
+  setError: React.Dispatch<React.SetStateAction<string | null>>;
   isOn: boolean;
   setIsOn: React.Dispatch<React.SetStateAction<boolean>>;
   volume: number;
@@ -14,8 +16,6 @@ function isDomException(err: unknown): err is DOMException {
 
 export function SoundButton(config: Props) {
   const [busy, setBusy] = useState(false); // 連打防止
-  const [error, setError] = useState<string | null>(null);
-
   const ctxRef = useRef<AudioContext | null>(null);
   const sourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -29,7 +29,7 @@ console.log("getUserMedia", navigator.mediaDevices?.getUserMedia);
 
 
     if (ctxRef.current) return; // すでに開始済み
-    setError(null);
+    config.setError(null);
 
     // 重要：ここが「macOSの設定 > マイク」に出現するトリガー
     let stream: MediaStream;
@@ -49,21 +49,21 @@ console.log("getUserMedia", navigator.mediaDevices?.getUserMedia);
       if (isDomException(err)) {
         // if (err.name === "NotAllowedError" || err.name === "SecurityError") {
         if (err.name === "NotAllowedError") {
-          setError("マイクの使用が許可されていません。macOSの「システム設定 > プライバシーとセキュリティ > マイク」でこのアプリをONにしてください。[NotAllowedError]");
+          config.setError("マイクの使用が許可されていません。macOSの「システム設定 > プライバシーとセキュリティ > マイク」でこのアプリをONにしてください。[NotAllowedError]");
           // setError(
           //   "マイクの使用が許可されていません。macOSの「システム設定 > プライバシーとセキュリティ > マイク」でこのアプリをONにしてください。"
           // );
         }
         else if (err.name === "SecurityError") {
-          setError("マイクの使用が許可されていません。macOSの「システム設定 > プライバシーとセキュリティ > マイク」でこのアプリをONにしてください。[SecurityError]");
+          config.setError("マイクの使用が許可されていません。macOSの「システム設定 > プライバシーとセキュリティ > マイク」でこのアプリをONにしてください。[SecurityError]");
         }
         else if (err.name === "NotFoundError") {
-          setError("マイクデバイスが見つかりません。マイクが接続されているか確認してください。");
+          config.setError("マイクデバイスが見つかりません。マイクが接続されているか確認してください。");
         } else {
-          setError(`マイクの取得に失敗しました（${err.name}）。`);
+          config.setError(`マイクの取得に失敗しました（${err.name}）。`);
         }
       } else {
-        setError("マイクの取得に失敗しました。");
+        config.setError("マイクの取得に失敗しました。");
       }
 
       // 中途半端な状態が残らないように
@@ -211,11 +211,11 @@ console.log("getUserMedia", navigator.mediaDevices?.getUserMedia);
         {config.isOn ? "ON" : "OFF"}
       </button>
 
-      {error && (
+      {/* {error && (
         <div style={{ maxWidth: 360, fontSize: 12, opacity: 0.85, lineHeight: 1.4 }}>
           {error}
         </div>
-      )}
+      )} */}
     </div>
   );
 }
