@@ -44,6 +44,10 @@ jobs:
         shell: bash
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
+          if [ -z "$VERSION" ] || [ "$VERSION" = "$GITHUB_REF_NAME" ]; then
+            echo "Invalid tag format: $GITHUB_REF_NAME (expected vX.Y.Z)"
+            exit 1
+          fi
           echo "VERSION=$VERSION" >> $GITHUB_ENV
           echo "Tag: $GITHUB_REF_NAME -> VERSION=$VERSION"
       - name: Patch tauri.conf.json version
