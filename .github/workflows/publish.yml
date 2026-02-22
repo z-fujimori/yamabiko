@@ -40,6 +40,21 @@ jobs:
       - name: Install frontend deps
         run: npm ci
 
+      - name: Set app version from git tag
+        shell: bash
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+          echo "Tag: $GITHUB_REF_NAME -> VERSION=$VERSION"
+      - name: Patch tauri.conf.json version
+        shell: bash
+        run: |
+          node -e "const fs=require('fs'); const p='src-tauri/tauri.conf.json'; const j=JSON.parse(fs.readFileSync(p,'utf8')); j.version=process.env.VERSION; fs.writeFileSync(p, JSON.stringify(j,null,2)+'\n'); console.log('patched', p, 'version=', j.version);"
+      - name: Patch Cargo.toml version
+        shell: bash
+        run: |
+          node -e "const fs=require('fs'); const p='src-tauri/Cargo.toml'; let s=fs.readFileSync(p,'utf8'); s=s.replace(/^version\s*=\s*\"[^\"]+\"/m, `version = \"${process.env.VERSION}\"`); fs.writeFileSync(p,s); console.log('patched', p, 'version=', process.env.VERSION);"
+
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
