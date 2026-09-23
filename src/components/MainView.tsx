@@ -4,9 +4,12 @@ import VolumeSlider from './VolumeSlider';
 import { DelaySlider } from './DelaySlider';
 import IconQuestion from './IconQuestion';
 import { WindowPinButton } from './WindowPinButton';
+import { UpdateButton } from './UpdateButton';
 
 const MainView = () => {
   const [isOn, setIsOn] = useState(false);
+  const [updating, setUpdating] = useState(false);
+  const [audioBusy, setAudioBusy] = useState(false);
   const [volume, setVolume] = useState(0.5);
   const [delaySec, setDelaySec] = useState(0.0);
     const [error, setError] = useState<string | null>(null);
@@ -15,7 +18,8 @@ const MainView = () => {
     <main className="container flex flex-col items-center justify-center min-h-screen select-none">
       {/* <h1 className="text-xl font-bold mb-2">Welcome to yamabiko.app</h1> */}
       <IconQuestion />
-      <SoundButton isOn={isOn} setIsOn={setIsOn} volume={volume} delaySec={delaySec} err={error} setError={setError} />
+      <UpdateButton audioActive={isOn || audioBusy} onBusyChange={setUpdating} />
+      <SoundButton disabled={updating} onBusyChange={setAudioBusy} isOn={isOn} setIsOn={setIsOn} volume={volume} delaySec={delaySec} err={error} setError={setError} />
 
       {error && 
         <div style={{ maxWidth: 360, fontSize: 12, opacity: 0.85, lineHeight: 1.4 }} className='mt-1'>
