@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import { useAppShortcuts } from "../hooks/useAppShortcuts";
 
 type Props = {
+  disabled?: boolean;
+  onBusyChange?: (busy: boolean) => void;
   err: string | null;
   setError: React.Dispatch<React.SetStateAction<string | null>>;
   isOn: boolean;
@@ -133,8 +135,9 @@ console.log("getUserMedia", navigator.mediaDevices?.getUserMedia);
   }
 
   async function toggleMicThrough() {
-    if (busy) return;
+    if (busy || config.disabled) return;
     setBusy(true);
+    config.onBusyChange?.(true);
     try {
       if (ctxRef.current) {
         await stopMicThrough();
@@ -144,6 +147,7 @@ console.log("getUserMedia", navigator.mediaDevices?.getUserMedia);
       }
     } finally {
       setBusy(false);
+      config.onBusyChange?.(false);
     }
   }
 
@@ -194,6 +198,7 @@ console.log("getUserMedia", navigator.mediaDevices?.getUserMedia);
   return (
     <div style={{ display: "grid", gap: 8, justifyItems: "center" }}>
       <button
+        disabled={busy || config.disabled}
         onClick={toggleMicThrough}
         style={{
           width: 80,

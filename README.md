@@ -23,6 +23,36 @@ Tauri + React + TypeScript で構築されたクロスプラットフォーム�
 - **音量制御**: スライダーで出力レベルを調整
 - **キーボードショートカット**: Enter キーで ON/OFF 切替
 - **ヘルプモーダル**: 使用方法を確認できる「?」ボタン
+- **アプリ内更新**: 起動時に更新を確認。新しい版があると「Update」を表示し、クリックで更新・再起動（音声OFF時のみ）
+
+## 自動更新のリリース設定
+
+この機能を搭載する最初のバージョンは、Releasesから手動でインストールしてください。
+以降は起動時の確認、または左上の「更新を確認」から更新できます。
+通信エラー時は再試行でき、更新中は音声の開始を無効にします。
+
+配布前に [Tauri updater用の署名鍵](https://v2.tauri.app/plugin/updater/) を一度だけ用意します。
+Appleのコード署名証明書とは別です。
+
+```sh
+npm run tauri signer generate -- -w ~/.tauri/yamabiko-updater.key
+```
+
+GitHubの Settings → Secrets and variables → Actions に設定します。
+
+| 種類 | 名前 | 値 |
+| --- | --- | --- |
+| Variable | `TAURI_UPDATER_PUBLIC_KEY` | 生成した `.key.pub` の内容 |
+| Secret | `TAURI_SIGNING_PRIVATE_KEY` | 生成した `.key` の内容 |
+| Secret | `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | 鍵生成時のパスワード（設定した場合） |
+
+秘密鍵はリポジトリに入れず、安全な場所にバックアップしてください。同じ鍵を将来の更新でも使います。
+CIは公開鍵をアプリ設定に埋め込み、更新ファイルと署名、`latest.json` を生成します。
+macOS・Windows両方のビルドが成功した後にドラフトを公開します。
+新しい `vX.Y.Z` タグで配布してください。既に公開したタグの再利用は避けてください。
+
+開発用設定の `pubkey` は空です。実際の更新テストには、上記公開鍵を設定した署名済みの旧版と、
+同じ鍵で署名した新しいリリースが必要です。ブラウザプレビューでは更新ボタンを表示しません。
 
 ## ⚠️ 使用上の注意
 
@@ -71,4 +101,3 @@ MIT License
 - 音量を下げてください
 
 ---
-

@@ -12,6 +12,8 @@ jobs:
   publish:
     strategy:
       fail-fast: false
+      # Serialize uploads so latest.json retains every platform.
+      max-parallel: 1
       matrix:
         include:
           - platform: macos-latest
@@ -25,7 +27,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
 
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
@@ -40,6 +42,16 @@ jobs:
       - name: Install frontend deps
         run: npm ci
 
+      - name: Test updater
+        run: npm test
+
+      - name: Configure updater signing
+        env:
+          TAURI_UPDATER_PUBLIC_KEY: ${{ vars.TAURI_UPDATER_PUBLIC_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+        run: node scripts/configure-updater.mjs
+
+      # versionをtagコマンドで更新（応急処置）
       - name: Set app version from git tag
         shell: bash
         run: |
@@ -59,9 +71,12 @@ jobs:
         run: |
           node -e "const fs=require('fs'); const p='src-tauri/Cargo.toml'; let s=fs.readFileSync(p,'utf8'); s=s.replace(/^version\s*=\s*\"[^\"]+\"/m, 'version = \"' + process.env.VERSION + '\"'); fs.writeFileSync(p,s); console.log('patched', p, 'version=', process.env.VERSION);"
 
+
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
 
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
@@ -74,5 +89,17 @@ jobs:
         with:
           tagName: ${{ github.ref_name }}
           releaseName: "Release ${{ github.ref_name }}"
-          releaseDraft: false
+          releaseDraft: true
           prerelease: false
+          uploadUpdaterJson: true
+
+  release:
+    needs: publish
+    runs-on: ubuntu-latest
+    steps:
+      - name: Publish complete release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: gh release edit "$RELEASE_TAG" --draft=false

@@ -11,6 +11,8 @@ fn set_always_on_top(window: Window, on: bool) {
 
 fn main() {
   tauri::Builder::default()
+    .plugin(tauri_plugin_updater::Builder::new().build())
+    .plugin(tauri_plugin_process::init())
     .invoke_handler(tauri::generate_handler![
       set_always_on_top
     ])
