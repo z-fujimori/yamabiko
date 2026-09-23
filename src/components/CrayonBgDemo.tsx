@@ -29,7 +29,7 @@ export function CrayonBgDemo(props: {text: string[]}) {
         <div className="relative">
           <div className="flex items-center justify-center">
             <div className="rounded-2xl bg-white/70 p-3 backdrop-blur text-center flex items-center justify-center">
-              <div className="text-sm text-neutral-800/70 leading-relaxed font-black w-70 h-13 flex flex-col items-center justify-center">
+              <div className="text-xs text-neutral-800 leading-relaxed font-semibold w-70 min-h-16 flex flex-col items-center justify-center">
                 {text.map((line, index) => (
                   <p key={index}>{line}</p>
                 ))}

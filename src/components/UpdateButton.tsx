@@ -3,7 +3,7 @@ import { isTauri } from "@tauri-apps/api/core";
 import { check, type Update } from "@tauri-apps/plugin-updater";
 import { relaunch } from "@tauri-apps/plugin-process";
 
-type Phase = "idle" | "checking" | "latest" | "available" | "installing" | "installed" | "error";
+type Phase = "idle" | "checking" | "latest" | "hidden" | "available" | "installing" | "installed" | "error";
 
 export function UpdateButton({ audioActive, onBusyChange }: {
   audioActive: boolean;
@@ -56,6 +56,12 @@ export function UpdateButton({ audioActive, onBusyChange }: {
     };
   }, []);
 
+  useEffect(() => {
+    if (phase !== "latest") return;
+    const timer = window.setTimeout(() => setPhase("hidden"), 3000);
+    return () => window.clearTimeout(timer);
+  }, [phase]);
+
   async function install() {
     if (busyRef.current || audioActive) return;
     const update = updateRef.current;
@@ -95,7 +101,7 @@ export function UpdateButton({ audioActive, onBusyChange }: {
     }
   }
 
-  if (!isTauri()) return null;
+  if (!isTauri() || phase === "hidden") return null;
   const available = phase === "available" || phase === "installed";
   const disabled = phase === "checking" || phase === "installing" || (available && audioActive);
   const label = phase === "installing" ? `更新中${progress === null ? "…" : ` ${progress}%`}`
