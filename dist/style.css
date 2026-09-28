@@ -5,3 +5,5 @@
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
 
 .steps p,details p,.download-panel p{font-size:1rem}.header nav,.benefits a,.button,.nav-download,.release-link,.feature-meta{font-size:.875rem}.app-pin svg{width:17px;height:17px;margin-top:2px}.visual-topline{flex-wrap:wrap;gap:8px}.image-note{font-size:.75rem}@media(max-width:400px){.visual-topline>span:last-child{display:none}.header{gap:10px}.brand{font-size:1.125rem}.nav-download{padding:10px}.nav-download span{display:none}}
+/* Keep the meeting-focused Japanese copy balanced at every width. */
+.benefits>span{font-size:1.0625rem}.hero h1{font-size:clamp(2.625rem,4.8vw,4.25rem)}.section-heading h2{font-size:clamp(1.65rem,2.7vw,2.25rem)}@media(max-width:1000px) and (min-width:721px){.benefits{align-items:flex-start;flex-direction:column;gap:10px}.visual-topline>span:last-child{display:none}}@media(max-width:720px){.hero h1{font-size:clamp(2.25rem,8vw,3.6rem)}.benefits>span{white-space:normal;font-size:1.0625rem}.download-panel h2{font-size:clamp(1.7rem,7vw,2.4rem)}.feature-grid h3{font-size:1.25rem}}
