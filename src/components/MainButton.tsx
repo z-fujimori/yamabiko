@@ -17,6 +17,13 @@ function isDomException(err: unknown): err is DOMException {
 }
 
 export function SoundButton(config: Props) {
+  const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
+  const [selectedDeviceId, setSelectedDeviceId] = useState("");
+  const [activeDeviceName, setActiveDeviceName] = useState("");
+  const [deviceMessage, setDeviceMessage] = useState("");
+  const deviceRequestRef = useRef(0);
+  const activeChoiceRef = useRef("");
+  const trackCleanupRef = useRef<(() => void) | null>(null);
   const [busy, setBusy] = useState(false); // 連打防止
   const ctxRef = useRef<AudioContext | null>(null);
   const sourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
@@ -29,6 +36,54 @@ export function SoundButton(config: Props) {
   const mountedRef = useRef(true);
   const generationRef = useRef(0);
 
+  function inputUnavailable() {
+    if (!mountedRef.current || !streamRef.current) return;
+    void stopMicThrough();
+    config.setIsOn(false);
+    config.setError("使用中のマイクが切断または変更されました。入力マイクを確認して、もう一度ONにしてください。");
+  }
+
+  async function refreshDevices() {
+    const request = ++deviceRequestRef.current;
+    const generation = generationRef.current;
+    try {
+      const list = await navigator.mediaDevices.enumerateDevices();
+      if (!mountedRef.current || request !== deviceRequestRef.current) return;
+      const inputs = list.filter((device) => device.kind === "audioinput");
+      setDevices(inputs.filter((device) => device.deviceId && !["default", "communications"].includes(device.deviceId)));
+      setDeviceMessage(inputs.some((device) => device.label) ? "" : "マイク名が出ない場合は、一度ONにして使用を許可してください。");
+      const track = streamRef.current?.getAudioTracks()[0];
+      if (!track || generation !== generationRef.current) return;
+      const id = track.getSettings().deviceId;
+      // Empty/redacted lists are not proof that a device was unplugged.
+      const knownInputs = inputs.filter((device) => device.deviceId && device.label);
+      if (track.readyState === "ended" ||
+          (activeChoiceRef.current && id && id !== activeChoiceRef.current) ||
+          (id && !["default", "communications"].includes(id) && knownInputs.length > 0 && !knownInputs.some((device) => device.deviceId === id))) {
+        inputUnavailable();
+        return;
+      }
+      setActiveDeviceName(track.label || inputs.find((device) => device.deviceId === id)?.label || "名前を取得できないマイク");
+    } catch {
+      if (mountedRef.current && request === deviceRequestRef.current) {
+        setDeviceMessage("マイク一覧を取得できませんでした。「再読込」で再試行できます。");
+      }
+    }
+  }
+
+  // Enumeration never requests microphone access. Refresh again after permission.
+  useEffect(() => {
+    const refresh = () => { void refreshDevices(); };
+    refresh();
+    navigator.mediaDevices?.addEventListener("devicechange", refresh);
+    window.addEventListener("focus", refresh);
+    return () => {
+      ++deviceRequestRef.current;
+      navigator.mediaDevices?.removeEventListener("devicechange", refresh);
+      window.removeEventListener("focus", refresh);
+    };
+  }, []);
+
   async function startMicThrough() {
     if (ctxRef.current) return;
     config.setError(null);
@@ -38,6 +93,7 @@ export function SoundButton(config: Props) {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
+          ...(selectedDeviceId ? { deviceId: { exact: selectedDeviceId } } : {}),
           // WebKit voice processing can attenuate other apps' microphone input.
           // https://bugs.webkit.org/show_bug.cgi?id=294623
           echoCancellation: false,
@@ -52,6 +108,20 @@ export function SoundButton(config: Props) {
       }
       streamRef.current = stream;
       acquired = true;
+      activeChoiceRef.current = selectedDeviceId;
+      const track = stream.getAudioTracks()[0];
+      const actualId = track?.getSettings().deviceId;
+      if (!track || track.readyState === "ended" || (selectedDeviceId && actualId && actualId !== selectedDeviceId)) {
+        inputUnavailable();
+        return;
+      }
+      const ended = () => {
+        if (streamRef.current === stream) inputUnavailable();
+      };
+      track.addEventListener("ended", ended);
+      trackCleanupRef.current = () => track.removeEventListener("ended", ended);
+      setActiveDeviceName(track.label || "名前を取得できないマイク");
+      void refreshDevices();
 
       const ctx = new AudioContext({ latencyHint: "interactive" });
       ctxRef.current = ctx;
@@ -82,6 +152,9 @@ export function SoundButton(config: Props) {
       } else if (isDomException(err)) {
         if (err.name === "NotAllowedError" || err.name === "SecurityError") {
           config.setError(`マイクの使用が許可されていません。macOSの「システム設定 > プライバシーとセキュリティ > マイク」でこのアプリをONにしてください。[${err.name}]`);
+        } else if (err.name === "OverconstrainedError") {
+          config.setError("選択したマイクを使用できません。接続を確認するか、別の入力マイクを選択してください。");
+          void refreshDevices();
         } else if (err.name === "NotFoundError") {
           config.setError("マイクデバイスが見つかりません。マイクが接続されているか確認してください。");
         } else if (err.name === "NotReadableError") {
@@ -97,6 +170,10 @@ export function SoundButton(config: Props) {
 
   async function stopMicThrough() {
     ++generationRef.current;
+    trackCleanupRef.current?.();
+    trackCleanupRef.current = null;
+    activeChoiceRef.current = "";
+    if (mountedRef.current) setActiveDeviceName("");
     // 接続を先に切る（順番が大事）
     try {
       sourceRef.current?.disconnect();
@@ -218,11 +295,29 @@ export function SoundButton(config: Props) {
         {config.isOn ? "ON" : "OFF"}
       </button>
 
-      {/* {error && (
-        <div style={{ maxWidth: 360, fontSize: 12, opacity: 0.85, lineHeight: 1.4 }}>
-          {error}
+      <div className="w-64 text-left text-xs">
+        <div className="mb-1 flex items-center justify-between">
+          <label htmlFor="microphone-input">入力マイク</label>
+          <button type="button" onClick={() => void refreshDevices()} className="underline"
+            aria-label="マイク一覧を再読込">再読込</button>
         </div>
-      )} */}
+        <select id="microphone-input" value={selectedDeviceId}
+          disabled={busy || config.isOn || config.disabled}
+          onChange={(event) => { setSelectedDeviceId(event.target.value); config.setError(null); }}
+          className="w-full rounded border border-gray-400 bg-white p-1 text-gray-900 disabled:opacity-60 dark:bg-gray-800 dark:text-white">
+          <option value="">システム既定のマイク</option>
+          {selectedDeviceId && !devices.some((device) => device.deviceId === selectedDeviceId) &&
+            <option value={selectedDeviceId}>選択中のマイク（未接続または確認できません）</option>}
+          {devices.map((device, index) => <option key={device.deviceId} value={device.deviceId}>
+            {device.label || `マイク ${index + 1}（名前未取得）`}
+          </option>)}
+        </select>
+        <p className="mt-1 break-words" aria-live="polite">
+          {activeDeviceName ? `使用中：${activeDeviceName}` : "マイク停止中"}
+        </p>
+        {config.isOn && <p>変更するには音声をOFFにしてください。</p>}
+        {deviceMessage && <p className="mt-1" aria-live="polite">{deviceMessage}</p>}
+      </div>
     </div>
   );
 }
