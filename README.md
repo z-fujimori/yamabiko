@@ -22,4 +22,17 @@ The app window in the hero is a static UI illustration, not a live microphone de
 
 ## Hosting
 
-`.openai/hosting.json` identifies the Sites project. Publish with the Sites workflow. Keep the site's audience unchanged unless explicitly requested.
+Public URL: https://z-fujimori.github.io/yamabiko/
+
+GitHub Pages serves the root of the `codex/project-site` branch in `z-fujimori/yamabiko`. Only `dist/` is published; the app source and website tests are excluded. `.nojekyll` makes this a plain static site.
+
+After editing, run:
+
+```sh
+node --test tests/downloads.test.mjs
+bash scripts/deploy-pages.sh
+```
+
+The deployment script uses a temporary checkout and pushes a regular commit. GitHub Pages publishes that commit automatically. Git SSH access to the repository is required. The existing app checkout is not modified.
+
+The former ChatGPT Sites deployment has been made private. It is no longer the public hosting provider; deleting its remote project still requires the Sites management interface.
