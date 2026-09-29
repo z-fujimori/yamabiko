@@ -24,83 +24,79 @@ export function SoundButton(config: Props) {
   const gainRef = useRef<GainNode | null>(null);
   const delayRef = useRef<DelayNode | null>(null);
 
+  // State alone does not prevent two shortcut events in the same render.
+  const busyRef = useRef(false);
+  const mountedRef = useRef(true);
+  const generationRef = useRef(0);
+
   async function startMicThrough() {
-console.log("isSecureContext", window.isSecureContext);
-console.log("mediaDevices", navigator.mediaDevices);
-console.log("getUserMedia", navigator.mediaDevices?.getUserMedia);
-
-
-    if (ctxRef.current) return; // すでに開始済み
+    if (ctxRef.current) return;
     config.setError(null);
+    const generation = ++generationRef.current;
+    let acquired = false;
 
-    // 重要：ここが「macOSの設定 > マイク」に出現するトリガー
-    let stream: MediaStream;
     try {
-      stream = await navigator.mediaDevices.getUserMedia({
+      const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
-          echoCancellation: true,
+          // WebKit voice processing can attenuate other apps' microphone input.
+          // https://bugs.webkit.org/show_bug.cgi?id=294623
+          echoCancellation: false,
           noiseSuppression: false,
           autoGainControl: false,
         },
       });
-    } catch (err) {
-      if (isDomException(err)) {
-        console.error("name:", err.name, "message:", err.message);
+      // Permission may resolve after this component has been disposed.
+      if (!mountedRef.current || generation !== generationRef.current) {
+        stream.getTracks().forEach((track) => track.stop());
+        return;
       }
-      // macOSでは拒否後に再ダイアログは出ないので、ここで案内する
-      if (isDomException(err)) {
-        // if (err.name === "NotAllowedError" || err.name === "SecurityError") {
-        if (err.name === "NotAllowedError") {
-          config.setError("マイクの使用が許可されていません。macOSの「システム設定 > プライバシーとセキュリティ > マイク」でこのアプリをONにしてください。[NotAllowedError]");
-          // setError(
-          //   "マイクの使用が許可されていません。macOSの「システム設定 > プライバシーとセキュリティ > マイク」でこのアプリをONにしてください。"
-          // );
-        }
-        else if (err.name === "SecurityError") {
-          config.setError("マイクの使用が許可されていません。macOSの「システム設定 > プライバシーとセキュリティ > マイク」でこのアプリをONにしてください。[SecurityError]");
-        }
-        else if (err.name === "NotFoundError") {
+      streamRef.current = stream;
+      acquired = true;
+
+      const ctx = new AudioContext({ latencyHint: "interactive" });
+      ctxRef.current = ctx;
+      if (ctx.state === "suspended") await ctx.resume();
+      if (!mountedRef.current || generation !== generationRef.current) return;
+
+      const source = ctx.createMediaStreamSource(stream);
+      sourceRef.current = source;
+      const delay = ctx.createDelay(2.5);
+      delay.delayTime.value = config.delaySec;
+      delayRef.current = delay;
+      const gain = ctx.createGain();
+      gain.gain.value = config.volume;
+      gainRef.current = gain;
+
+      source.connect(delay);
+      delay.connect(gain);
+      gain.connect(ctx.destination);
+      config.setIsOn(true);
+    } catch (err) {
+      if (!mountedRef.current || generation !== generationRef.current) return;
+      // Includes failures after acquisition (constructor, resume, graph setup).
+      await stopMicThrough();
+      if (!mountedRef.current) return;
+      config.setIsOn(false);
+      if (acquired) {
+        config.setError("音声の初期化に失敗しました。マイクを解放しました。もう一度ONにしてください。");
+      } else if (isDomException(err)) {
+        if (err.name === "NotAllowedError" || err.name === "SecurityError") {
+          config.setError(`マイクの使用が許可されていません。macOSの「システム設定 > プライバシーとセキュリティ > マイク」でこのアプリをONにしてください。[${err.name}]`);
+        } else if (err.name === "NotFoundError") {
           config.setError("マイクデバイスが見つかりません。マイクが接続されているか確認してください。");
+        } else if (err.name === "NotReadableError") {
+          config.setError("マイクを開始できません。接続と他のアプリの音声設定を確認して、もう一度ONにしてください。");
         } else {
           config.setError(`マイクの取得に失敗しました（${err.name}）。`);
         }
       } else {
         config.setError("マイクの取得に失敗しました。");
       }
-
-      // 中途半端な状態が残らないように
-      await stopMicThrough();
-      config.setIsOn(false);
-      return;
     }
-
-    streamRef.current = stream;
-
-    const ctx = new AudioContext({ latencyHint: "interactive" });
-    ctxRef.current = ctx;
-    if (ctx.state === "suspended") await ctx.resume();
-
-    const source = ctx.createMediaStreamSource(stream);
-    sourceRef.current = source;
-
-    // 最大遅延秒（必要に応じて）※ 2.5 = 2.5秒
-    const delay = ctx.createDelay(2.5);
-    delay.delayTime.value = config.delaySec;
-    delayRef.current = delay;
-
-    const gain = ctx.createGain();
-    gain.gain.value = config.volume;
-    gainRef.current = gain;
-
-    // 接続：source → delay → gain → destination
-    source.connect(delay);
-    delay.connect(gain);
-    gain.connect(ctx.destination);
-
-    config.setIsOn(true);
   }
 
   async function stopMicThrough() {
+    ++generationRef.current;
     // 接続を先に切る（順番が大事）
     try {
       sourceRef.current?.disconnect();
@@ -135,7 +131,8 @@ console.log("getUserMedia", navigator.mediaDevices?.getUserMedia);
   }
 
   async function toggleMicThrough() {
-    if (busy || config.disabled) return;
+    if (busyRef.current || config.disabled) return;
+    busyRef.current = true;
     setBusy(true);
     config.onBusyChange?.(true);
     try {
@@ -146,15 +143,20 @@ console.log("getUserMedia", navigator.mediaDevices?.getUserMedia);
         await startMicThrough(); // start側で成功時だけON
       }
     } finally {
-      setBusy(false);
-      config.onBusyChange?.(false);
+      busyRef.current = false;
+      if (mountedRef.current) {
+        setBusy(false);
+        config.onBusyChange?.(false);
+      }
     }
   }
 
   // 破棄時に停止
   useEffect(() => {
+    mountedRef.current = true;
     return () => {
-      stopMicThrough();
+      mountedRef.current = false;
+      void stopMicThrough();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
