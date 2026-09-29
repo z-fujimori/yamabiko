@@ -21,6 +21,9 @@ async function start(audioActive = false) {
   await act(async () => { await vi.advanceTimersByTimeAsync(1000); });
   return { ...view, onBusyChange };
 }
+function updateButton() {
+  return screen.getByRole("button", { name: /^(Update|更新を確認|確認を再試行|最新版です|再起動|確認中|更新中)/ });
+}
 function availableUpdate() {
   return { version: "0.3.0", close: vi.fn().mockResolvedValue(undefined), downloadAndInstall: vi.fn().mockResolvedValue(undefined) };
 }
@@ -30,14 +33,14 @@ describe("app updates", () => {
     mocks.check.mockResolvedValue(null);
     await start();
     expect(mocks.check).toHaveBeenCalledWith({ timeout: 15000 });
-    expect(screen.getByRole("button").textContent).toBe("最新版です");
+    expect(updateButton().textContent).toBe("最新版です");
   });
   it("installs only after clicking Update, then restarts", async () => {
     const update = availableUpdate();
     mocks.check.mockResolvedValue(update);
     const { onBusyChange } = await start();
     expect(update.downloadAndInstall).not.toHaveBeenCalled();
-    await act(async () => { fireEvent.click(screen.getByRole("button")); });
+    await act(async () => { fireEvent.click(updateButton()); });
     expect(update.downloadAndInstall).toHaveBeenCalledTimes(1);
     expect(mocks.relaunch).toHaveBeenCalledTimes(1);
     expect(onBusyChange.mock.calls).toEqual([[true], [false]]);
@@ -46,26 +49,26 @@ describe("app updates", () => {
     const update = availableUpdate();
     mocks.check.mockResolvedValue(update);
     await start(true);
-    expect((screen.getByRole("button") as HTMLButtonElement).disabled).toBe(true);
-    fireEvent.click(screen.getByRole("button"));
+    expect((updateButton() as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(updateButton());
     expect(update.downloadAndInstall).not.toHaveBeenCalled();
   });
   it("allows retry after a network failure", async () => {
     mocks.check.mockRejectedValueOnce(new Error("offline")).mockResolvedValueOnce(null);
     await start();
-    expect(screen.getByRole("button").textContent).toBe("確認を再試行");
-    await act(async () => { fireEvent.click(screen.getByRole("button")); });
-    expect(screen.getByRole("button").textContent).toBe("最新版です");
+    expect(updateButton().textContent).toBe("確認を再試行");
+    await act(async () => { fireEvent.click(updateButton()); });
+    expect(updateButton().textContent).toBe("最新版です");
   });
   it("does not restart after an installation failure and allows retry", async () => {
     const update = availableUpdate();
     update.downloadAndInstall.mockRejectedValueOnce(new Error("invalid signature"));
     mocks.check.mockResolvedValue(update);
     await start();
-    await act(async () => { fireEvent.click(screen.getByRole("button")); });
+    await act(async () => { fireEvent.click(updateButton()); });
     expect(mocks.relaunch).not.toHaveBeenCalled();
-    expect(screen.getByRole("button").textContent).toBe("Update");
-    await act(async () => { fireEvent.click(screen.getByRole("button")); });
+    expect(updateButton().textContent).toBe("Update");
+    await act(async () => { fireEvent.click(updateButton()); });
     expect(mocks.relaunch).toHaveBeenCalledTimes(1);
   });
   it("retries restart without reinstalling", async () => {
@@ -73,11 +76,43 @@ describe("app updates", () => {
     mocks.check.mockResolvedValue(update);
     mocks.relaunch.mockRejectedValueOnce(new Error("restart failed"));
     await start();
-    await act(async () => { fireEvent.click(screen.getByRole("button")); });
-    expect(screen.getByRole("button").textContent).toBe("再起動");
-    await act(async () => { fireEvent.click(screen.getByRole("button")); });
+    await act(async () => { fireEvent.click(updateButton()); });
+    expect(updateButton().textContent).toBe("再起動");
+    await act(async () => { fireEvent.click(updateButton()); });
     expect(update.downloadAndInstall).toHaveBeenCalledTimes(1);
     expect(mocks.relaunch).toHaveBeenCalledTimes(2);
+  });
+  it("dismisses an update during audio use without installing, and allows checking again", async () => {
+    const update = availableUpdate();
+    mocks.check.mockResolvedValue(update);
+    const { onBusyChange } = await start(true);
+    await act(async () => { fireEvent.click(screen.getByRole("button", { name: "更新をキャンセル" })); });
+    expect(update.close).toHaveBeenCalledTimes(1);
+    expect(update.downloadAndInstall).not.toHaveBeenCalled();
+    expect(mocks.relaunch).not.toHaveBeenCalled();
+    expect(onBusyChange).not.toHaveBeenCalled();
+    expect(updateButton().textContent).toBe("更新を確認");
+    expect(screen.queryByRole("button", { name: "更新をキャンセル" })).toBeNull();
+    expect(screen.queryByText("音声をOFFにすると更新できます")).toBeNull();
+    mocks.check.mockResolvedValue(availableUpdate());
+    await act(async () => { fireEvent.click(updateButton()); });
+    expect(mocks.check).toHaveBeenCalledTimes(2);
+    expect(updateButton().textContent).toBe("Update");
+    expect(update.close).toHaveBeenCalledTimes(1);
+  });
+  it("does not offer cancellation during installation or after installation", async () => {
+    const update = availableUpdate();
+    let finish!: () => void;
+    update.downloadAndInstall.mockReturnValue(new Promise<void>((resolve) => { finish = resolve; }));
+    mocks.check.mockResolvedValue(update);
+    mocks.relaunch.mockRejectedValueOnce(new Error("restart failed"));
+    await start();
+    await act(async () => { fireEvent.click(updateButton()); });
+    expect(updateButton().textContent).toBe("更新中…");
+    expect(screen.queryByRole("button", { name: "更新をキャンセル" })).toBeNull();
+    await act(async () => { finish(); });
+    expect(updateButton().textContent).toBe("再起動");
+    expect(screen.queryByRole("button", { name: "更新をキャンセル" })).toBeNull();
   });
   it("hides updates in browser preview", async () => {
     mocks.isTauri.mockReturnValue(false);
