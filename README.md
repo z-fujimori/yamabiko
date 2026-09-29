@@ -22,6 +22,8 @@ The app window in the hero is a static UI illustration, not a live microphone de
 
 ## Hosting
 
+Editable source, tests, and deployment script are stored in the `codex/project-site-source` branch of `z-fujimori/yamabiko`. This directory is an independent Git checkout.
+
 Public URL: https://z-fujimori.github.io/yamabiko/
 
 GitHub Pages serves the root of the `codex/project-site` branch in `z-fujimori/yamabiko`. Only `dist/` is published; the app source and website tests are excluded. `.nojekyll` makes this a plain static site.
