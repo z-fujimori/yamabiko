@@ -27,8 +27,8 @@ const MainView = () => {
         </div> 
       ||
         <div>
-          <VolumeSlider volume={volume} setVolume={setVolume} sliderEnabled={isOn} />
-          <DelaySlider delaySec={delaySec} setDelaySec={setDelaySec} disabled={isOn} />
+          <VolumeSlider volume={volume} setVolume={setVolume} />
+          <DelaySlider delaySec={delaySec} setDelaySec={setDelaySec} />
         </div>
       }
       {/* <p className="text-sm mt-2">※ハウリング防止のためイヤホン推奨</p> */}

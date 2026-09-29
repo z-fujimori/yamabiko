@@ -3,7 +3,7 @@ import React, { useEffect, useRef, useState } from "react";
 type SlideModalProps = {
   open: boolean;
   onClose: () => void;
-  pages: React.ReactNode[]; // 2ページ想定（増えても動く）
+  pages: React.ReactNode[];
   initialIndex?: number;
   title?: string;
 };
@@ -13,6 +13,7 @@ export function HorizontalSlideModal({
   onClose,
   pages,
   initialIndex = 0,
+  title = "ヘルプ",
 }: SlideModalProps) {
   const pageCount = pages.length;
 
@@ -117,11 +118,13 @@ export function HorizontalSlideModal({
       <button
         className="absolute inset-0 bg-black/50"
         onClick={onClose}
-        aria-label="close overlay"
+        aria-label="ヘルプを閉じる"
       />
 
       {/* modal */}
-      <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-2xl w-full">
+      <div role="dialog" aria-modal="true" aria-label={title}
+        onClick={(e) => e.stopPropagation()}
+        className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-2xl w-full">
         {/* slider area */}
         <div
           className="relative select-none" // 縦スクロールは許可、横ドラッグは自前
@@ -143,49 +146,19 @@ export function HorizontalSlideModal({
             ))}
           </div>
 
-          {/* 左矢印ボタン */}
-          {index > 0 && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setIndex((v) => Math.max(0, v - 1));
-              }}
-              className="absolute left-14 top-33 -translate-y-1/2 z-10 bg-white/80 hover:bg-white text-gray-800 rounded-full w-8 h-8 flex items-center justify-center transition hover:scale-110 active:scale-95"
-              aria-label="Previous page"
-            >
-              ‹
-            </button>
-          )}
-
-          {/* 右矢印ボタン */}
-          {index < pageCount - 1 && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setIndex((v) => Math.min(pageCount - 1, v + 1));
-              }}
-              className="absolute right-14 top-33 -translate-y-1/2 z-10 bg-white/80 hover:bg-white text-gray-800 rounded-full w-8 h-8 flex items-center justify-center transition hover:scale-110 active:scale-95"
-              aria-label="Next page"
-            >
-              ›
-            </button>
-          )}
-
-          {/* dots */}
-          <div className="flex items-center justify-center gap-2 pb-4 pt-2">
-            {Array.from({ length: pageCount }).map((_, i) => {
-              const active = i === index;
-              return (
-                <span
-                  key={i}
-                  className={[
-                    "h-2 w-2 rounded-full transition-colors",
-                    active ? "bg-zinc-300" : "bg-zinc-500",
-                  ].join(" ")}
-                />
-              );
-            })}
-          </div>
+        </div>
+        <div className="flex items-center justify-center gap-3 pb-2 text-xs text-white">
+          <button type="button" disabled={index === 0}
+            onClick={() => setIndex((v) => Math.max(0, v - 1))}
+            className="rounded-full bg-white/90 text-gray-800 w-7 h-7 disabled:opacity-30"
+            aria-label="前のページ">‹</button>
+          <span aria-live="polite">{index + 1} / {pageCount}</span>
+          <button type="button" disabled={index === pageCount - 1}
+            onClick={() => setIndex((v) => Math.min(pageCount - 1, v + 1))}
+            className="rounded-full bg-white/90 text-gray-800 w-7 h-7 disabled:opacity-30"
+            aria-label="次のページ">›</button>
+          <button type="button" onClick={onClose}
+            className="rounded-full border border-white/60 px-3 py-1">閉じる（Esc）</button>
         </div>
       </div>
     </div>
