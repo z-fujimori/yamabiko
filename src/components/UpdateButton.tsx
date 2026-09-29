@@ -56,6 +56,17 @@ export function UpdateButton({ audioActive, onBusyChange }: {
     };
   }, []);
 
+  function dismissUpdate() {
+    if (busyRef.current || phase !== "available") return;
+    const update = updateRef.current;
+    updateRef.current = null;
+    setPhase("idle");
+    setVersion("");
+    setMessage("");
+    setProgress(null);
+    void update?.close().catch(console.error);
+  }
+
   async function install() {
     if (busyRef.current || audioActive) return;
     const update = updateRef.current;
@@ -109,11 +120,18 @@ export function UpdateButton({ audioActive, onBusyChange }: {
 
   return (
     <div className="fixed top-2 left-3 max-w-64 text-left text-xs" aria-live="polite">
-      <button type="button" disabled={disabled} onClick={() => void (available ? install() : checkForUpdate())}
-        title={description} aria-label={`${label}：${description}`}
-        className={`rounded-full border px-3 py-1 disabled:opacity-50 ${available ? "border-green-600 text-green-600 font-semibold" : "border-gray-400 text-gray-500 dark:text-gray-300"}`}>
-        {label}
-      </button>
+      <div className="flex items-center gap-1">
+        <button type="button" disabled={disabled} onClick={() => void (available ? install() : checkForUpdate())}
+          title={description} aria-label={`${label}：${description}`}
+          className={`rounded-full border px-3 py-1 disabled:opacity-50 ${available ? "border-green-600 text-green-600 font-semibold" : "border-gray-400 text-gray-500 dark:text-gray-300"}`}>
+          {label}
+        </button>
+        {phase === "available" && <button type="button" onClick={dismissUpdate}
+          title="今回は更新しない" aria-label="更新をキャンセル"
+          className="flex h-7 w-7 items-center justify-center rounded-full text-lg text-gray-500 hover:bg-gray-200 dark:text-gray-300 dark:hover:bg-gray-700">
+          <span aria-hidden="true">×</span>
+        </button>}
+      </div>
       {(message || (available && audioActive)) && <p className="mt-1 max-w-44">{description}</p>}
     </div>
   );
