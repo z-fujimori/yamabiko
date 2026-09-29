@@ -15,7 +15,7 @@ const MainView = () => {
     const [error, setError] = useState<string | null>(null);
 
   return (
-    <main className="container flex flex-col items-center justify-center min-h-screen select-none">
+    <main className="container flex flex-col items-center justify-center min-h-screen select-none py-10">
       {/* <h1 className="text-xl font-bold mb-2">Welcome to yamabiko.app</h1> */}
       <IconQuestion />
       <UpdateButton audioActive={isOn || audioBusy} onBusyChange={setUpdating} />
