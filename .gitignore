@@ -22,3 +22,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Independent website checkout; source is on codex/project-site-source
+/project-site/
