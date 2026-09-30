@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { resumePlayback } from "../audio/resumePlayback";
 import { useAppShortcuts } from "../hooks/useAppShortcuts";
 
 type Props = {
@@ -17,6 +18,9 @@ function isDomException(err: unknown): err is DOMException {
 }
 
 export function SoundButton(config: Props) {
+  const [playbackPaused, setPlaybackPaused] = useState(false);
+  const [playbackMessage, setPlaybackMessage] = useState("");
+  const playbackCleanupRef = useRef<(() => void) | null>(null);
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
   const [selectedDeviceId, setSelectedDeviceId] = useState("");
   const [activeDeviceName, setActiveDeviceName] = useState("");
@@ -125,7 +129,7 @@ export function SoundButton(config: Props) {
 
       const ctx = new AudioContext({ latencyHint: "interactive" });
       ctxRef.current = ctx;
-      if (ctx.state === "suspended") await ctx.resume();
+      await resumePlayback(ctx);
       if (!mountedRef.current || generation !== generationRef.current) return;
 
       const source = ctx.createMediaStreamSource(stream);
@@ -140,6 +144,13 @@ export function SoundButton(config: Props) {
       source.connect(delay);
       delay.connect(gain);
       gain.connect(ctx.destination);
+      const updatePlaybackState = () => {
+        if (!mountedRef.current || ctxRef.current !== ctx) return;
+        setPlaybackPaused(ctx.state !== "running");
+      };
+      ctx.addEventListener("statechange", updatePlaybackState);
+      playbackCleanupRef.current = () => ctx.removeEventListener("statechange", updatePlaybackState);
+      updatePlaybackState();
       config.setIsOn(true);
     } catch (err) {
       if (!mountedRef.current || generation !== generationRef.current) return;
@@ -170,6 +181,12 @@ export function SoundButton(config: Props) {
 
   async function stopMicThrough() {
     ++generationRef.current;
+    playbackCleanupRef.current?.();
+    playbackCleanupRef.current = null;
+    if (mountedRef.current) {
+      setPlaybackPaused(false);
+      setPlaybackMessage("");
+    }
     trackCleanupRef.current?.();
     trackCleanupRef.current = null;
     activeChoiceRef.current = "";
@@ -204,6 +221,30 @@ export function SoundButton(config: Props) {
       try {
         await ctx.close();
       } catch {}
+    }
+  }
+
+  async function recoverPlayback() {
+    const ctx = ctxRef.current;
+    if (!ctx || busyRef.current) return;
+    busyRef.current = true;
+    setBusy(true);
+    config.onBusyChange?.(true);
+    setPlaybackMessage("");
+    try {
+      // Called directly from a user gesture; reuse the existing microphone.
+      await resumePlayback(ctx);
+      if (mountedRef.current && ctxRef.current === ctx) setPlaybackPaused(false);
+    } catch {
+      if (mountedRef.current && ctxRef.current === ctx) {
+        setPlaybackMessage("再生を再開できませんでした。音声をOFFにして、出力先を確認してからONにしてください。");
+      }
+    } finally {
+      busyRef.current = false;
+      if (mountedRef.current) {
+        setBusy(false);
+        config.onBusyChange?.(false);
+      }
     }
   }
 
@@ -316,6 +357,12 @@ export function SoundButton(config: Props) {
           {activeDeviceName ? `使用中：${activeDeviceName}` : "マイク停止中"}
         </p>
         {config.isOn && <p>変更するには音声をOFFにしてください。</p>}
+        {config.isOn && playbackPaused && <div className="mt-1" aria-live="polite">
+          <p>音声の再生が中断されています。</p>
+          <button type="button" disabled={busy || config.disabled} onClick={() => void recoverPlayback()}
+            className="rounded border px-2 py-1 disabled:opacity-50">音声を再開</button>
+        </div>}
+        {playbackMessage && <p aria-live="polite">{playbackMessage}</p>}
         {deviceMessage && <p className="mt-1" aria-live="polite">{deviceMessage}</p>}
       </div>
     </div>

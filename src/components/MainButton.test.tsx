@@ -21,13 +21,16 @@ let failAt = "";
 let contextState = "running";
 const stream = { getTracks: () => [track, { stop }], getAudioTracks: () => [track] } as unknown as MediaStream;
 
-class FakeAudioContext {
+let context: FakeAudioContext;
+class FakeAudioContext extends EventTarget {
   state = contextState;
   currentTime = 0;
   destination = {};
   close = close;
   resume = resume;
   constructor() {
+    super();
+    context = this;
     if (failAt === "constructor") throw new Error("constructor failed");
   }
   createMediaStreamSource() {
@@ -65,7 +68,7 @@ beforeEach(() => {
   enumerateDevices.mockResolvedValue([input("built-in", "内蔵マイク"), input("usb", "USB マイク")]);
   getUserMedia.mockResolvedValue(stream);
   close.mockResolvedValue(undefined);
-  resume.mockResolvedValue(undefined);
+  resume.mockImplementation(async () => { context.state = "running"; });
   vi.stubGlobal("AudioContext", FakeAudioContext);
   Object.defineProperty(navigator, "mediaDevices", { configurable: true, value: mediaDevices });
 });
@@ -277,5 +280,69 @@ describe("input device selection", () => {
     mediaDevices.dispatchEvent(new Event("devicechange"));
     window.dispatchEvent(new Event("focus"));
     expect(enumerateDevices).not.toHaveBeenCalled();
+  });
+});
+
+describe("monitor playback recovery", () => {
+  it("resumes an interrupted context before connecting the microphone to output", async () => {
+    contextState = "interrupted";
+    await mountedView();
+    await toggle();
+    expect(resume).toHaveBeenCalledTimes(1);
+    expect(connect).toHaveBeenNthCalledWith(3, context.destination);
+    expect(screen.getByRole("button", { name: "ON" })).toBeTruthy();
+  });
+  it("recovers interrupted output without reacquiring the microphone or enabling echo cancellation", async () => {
+    await mountedView();
+    await toggle();
+    await act(async () => {
+      context.state = "interrupted";
+      context.dispatchEvent(new Event("statechange"));
+    });
+    expect(screen.getByText("音声の再生が中断されています。")).toBeTruthy();
+    await act(async () => { fireEvent.click(screen.getByRole("button", { name: "音声を再開" })); });
+    expect(resume).toHaveBeenCalledTimes(1);
+    expect(getUserMedia).toHaveBeenCalledTimes(1);
+    expect(getUserMedia.mock.calls[0][0].audio.echoCancellation).toBe(false);
+    expect(stop).not.toHaveBeenCalled();
+    expect(screen.queryByRole("button", { name: "音声を再開" })).toBeNull();
+  });
+  it("keeps the recovery action available when resume resolves but playback is still suspended", async () => {
+    await mountedView();
+    await toggle();
+    await act(async () => {
+      context.state = "suspended";
+      context.dispatchEvent(new Event("statechange"));
+    });
+    resume.mockResolvedValueOnce(undefined);
+    await act(async () => { fireEvent.click(screen.getByRole("button", { name: "音声を再開" })); });
+    expect(screen.getByText(/再生を再開できませんでした/)).toBeTruthy();
+    expect(screen.getByRole("button", { name: "音声を再開" })).toBeTruthy();
+  });
+  it("releases the microphone after a stalled startup resume and enables retry", async () => {
+    vi.useFakeTimers();
+    try {
+      contextState = "suspended";
+      resume.mockReturnValueOnce(new Promise(() => {}));
+      await mountedView();
+      await toggle();
+      await act(async () => { await vi.advanceTimersByTimeAsync(5000); });
+      expect(stop).toHaveBeenCalledTimes(2);
+      expect(close).toHaveBeenCalledTimes(1);
+      expect((screen.getByRole("button", { name: "OFF" }) as HTMLButtonElement).disabled).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+  it("ignores state changes from an old context after stopping", async () => {
+    await mountedView();
+    await toggle();
+    const oldContext = context;
+    await toggle();
+    await act(async () => {
+      oldContext.state = "suspended";
+      oldContext.dispatchEvent(new Event("statechange"));
+    });
+    expect(screen.queryByText("音声の再生が中断されています。")).toBeNull();
   });
 });
