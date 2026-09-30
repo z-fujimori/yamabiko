@@ -15,22 +15,16 @@ const MainView = () => {
     const [error, setError] = useState<string | null>(null);
 
   return (
-    <main className="container flex flex-col items-center justify-center min-h-screen select-none py-10">
+    <main className="container flex flex-col items-center justify-center min-h-screen select-none">
       {/* <h1 className="text-xl font-bold mb-2">Welcome to yamabiko.app</h1> */}
       <IconQuestion />
       <UpdateButton audioActive={isOn || audioBusy} onBusyChange={setUpdating} />
       <SoundButton disabled={updating} onBusyChange={setAudioBusy} isOn={isOn} setIsOn={setIsOn} volume={volume} delaySec={delaySec} err={error} setError={setError} />
 
-      {error && 
-        <div style={{ maxWidth: 360, fontSize: 12, opacity: 0.85, lineHeight: 1.4 }} className='mt-1'>
-          {error}
-        </div> 
-      ||
-        <div>
-          <VolumeSlider volume={volume} setVolume={setVolume} />
-          <DelaySlider delaySec={delaySec} setDelaySec={setDelaySec} />
-        </div>
-      }
+      <div>
+        <VolumeSlider volume={volume} setVolume={setVolume} />
+        <DelaySlider delaySec={delaySec} setDelaySec={setDelaySec} />
+      </div>
       {/* <p className="text-sm mt-2">※ハウリング防止のためイヤホン推奨</p> */}
       <WindowPinButton />
     

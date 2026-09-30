@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { Mic } from "lucide-react";
 import { resumePlayback } from "../audio/resumePlayback";
 import { useAppShortcuts } from "../hooks/useAppShortcuts";
 
@@ -18,6 +19,7 @@ function isDomException(err: unknown): err is DOMException {
 }
 
 export function SoundButton(config: Props) {
+  const microphonePanelRef = useRef<HTMLDetailsElement | null>(null);
   const [playbackPaused, setPlaybackPaused] = useState(false);
   const [playbackMessage, setPlaybackMessage] = useState("");
   const playbackCleanupRef = useRef<(() => void) | null>(null);
@@ -86,6 +88,15 @@ export function SoundButton(config: Props) {
       navigator.mediaDevices?.removeEventListener("devicechange", refresh);
       window.removeEventListener("focus", refresh);
     };
+  }, []);
+
+  useEffect(() => {
+    const closePanel = (event: PointerEvent) => {
+      const panel = microphonePanelRef.current;
+      if (panel?.open && event.target instanceof Node && !panel.contains(event.target)) panel.open = false;
+    };
+    document.addEventListener("pointerdown", closePanel);
+    return () => document.removeEventListener("pointerdown", closePanel);
   }, []);
 
   async function startMicThrough() {
@@ -336,7 +347,29 @@ export function SoundButton(config: Props) {
         {config.isOn ? "ON" : "OFF"}
       </button>
 
-      <div className="w-64 text-left text-xs">
+      <details ref={microphonePanelRef} className="fixed bottom-3 left-3 z-20 text-left text-xs"
+        onKeyDown={(event) => {
+          event.stopPropagation();
+          if (event.key === "Escape") {
+            event.preventDefault();
+            if (microphonePanelRef.current) microphonePanelRef.current.open = false;
+            microphonePanelRef.current?.querySelector("summary")?.focus();
+          }
+        }}>
+        <summary aria-label="入力マイク設定" title={activeDeviceName ? `使用中：${activeDeviceName}` : "入力マイク設定"}
+          className="relative flex h-7 w-7 cursor-pointer list-none items-center justify-center rounded-full border-2 border-gray-400 text-gray-400 hover:bg-gray-100 hover:text-gray-700 [&::-webkit-details-marker]:hidden">
+          <Mic size={16} />
+          {(config.err || playbackPaused) && <span aria-label="音声の状態を確認" className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-amber-500" />}
+        </summary>
+        <div className="fixed inset-2 z-30 overflow-y-auto rounded-xl border border-gray-400 bg-white p-3 text-gray-900 shadow-lg dark:bg-[#2f2f2f] dark:text-white">
+        <div className="mb-2 flex items-center justify-between">
+          <span className="font-semibold">マイク設定</span>
+          <button type="button" aria-label="マイク設定を閉じる" className="px-2 text-lg leading-none"
+            onClick={() => {
+              if (microphonePanelRef.current) microphonePanelRef.current.open = false;
+              microphonePanelRef.current?.querySelector("summary")?.focus();
+            }}>×</button>
+        </div>
         <div className="mb-1 flex items-center justify-between">
           <label htmlFor="microphone-input">入力マイク</label>
           <button type="button" onClick={() => void refreshDevices()} className="underline"
@@ -364,7 +397,9 @@ export function SoundButton(config: Props) {
         </div>}
         {playbackMessage && <p aria-live="polite">{playbackMessage}</p>}
         {deviceMessage && <p className="mt-1" aria-live="polite">{deviceMessage}</p>}
-      </div>
+        {config.err && <p className="mt-1 text-amber-700 dark:text-amber-300" role="alert">{config.err}</p>}
+        </div>
+      </details>
     </div>
   );
 }
