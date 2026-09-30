@@ -14,3 +14,13 @@ export async function resumePlayback(context: AudioContext): Promise<void> {
     clearTimeout(timer);
   }
 }
+
+export async function resumeMonitorPlayback(
+  context: AudioContext,
+  element: HTMLAudioElement,
+): Promise<void> {
+  await Promise.all([resumePlayback(context), element.play()]);
+  if ((context.state as string) !== "running" || element.paused) {
+    throw new Error("Monitor playback is not running");
+  }
+}
