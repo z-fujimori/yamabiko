@@ -10,7 +10,7 @@ const MainView = () => {
   const [isOn, setIsOn] = useState(false);
   const [updating, setUpdating] = useState(false);
   const [audioBusy, setAudioBusy] = useState(false);
-  const [volume, setVolume] = useState(0.5);
+  const [volume, setVolume] = useState(1.0);
   const [delaySec, setDelaySec] = useState(0.0);
     const [error, setError] = useState<string | null>(null);
 
