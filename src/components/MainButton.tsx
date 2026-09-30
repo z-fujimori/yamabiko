@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from "react";
+import { Settings } from "lucide-react";
+import { resumeMonitorPlayback, resumePlayback } from "../audio/resumePlayback";
 import { useAppShortcuts } from "../hooks/useAppShortcuts";
 
 type Props = {
@@ -13,10 +15,15 @@ type Props = {
 };
 
 function isDomException(err: unknown): err is DOMException {
-  return typeof err === "object" && err !== null && "name" in err;
+  return err instanceof DOMException;
 }
 
 export function SoundButton(config: Props) {
+  const microphonePanelRef = useRef<HTMLDetailsElement | null>(null);
+  const [playbackPaused, setPlaybackPaused] = useState(false);
+  const [playbackMessage, setPlaybackMessage] = useState("");
+  const playbackCleanupRef = useRef<(() => void) | null>(null);
+  const playbackRecoveryRef = useRef<Promise<void> | null>(null);
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
   const [selectedDeviceId, setSelectedDeviceId] = useState("");
   const [activeDeviceName, setActiveDeviceName] = useState("");
@@ -30,6 +37,8 @@ export function SoundButton(config: Props) {
   const streamRef = useRef<MediaStream | null>(null);
   const gainRef = useRef<GainNode | null>(null);
   const delayRef = useRef<DelayNode | null>(null);
+  const monitorDestinationRef = useRef<MediaStreamAudioDestinationNode | null>(null);
+  const monitorElementRef = useRef<HTMLAudioElement | null>(null);
 
   // State alone does not prevent two shortcut events in the same render.
   const busyRef = useRef(false);
@@ -84,6 +93,15 @@ export function SoundButton(config: Props) {
     };
   }, []);
 
+  useEffect(() => {
+    const closePanel = (event: PointerEvent) => {
+      const panel = microphonePanelRef.current;
+      if (panel?.open && event.target instanceof Node && !panel.contains(event.target)) panel.open = false;
+    };
+    document.addEventListener("pointerdown", closePanel);
+    return () => document.removeEventListener("pointerdown", closePanel);
+  }, []);
+
   async function startMicThrough() {
     if (ctxRef.current) return;
     config.setError(null);
@@ -91,6 +109,22 @@ export function SoundButton(config: Props) {
     let acquired = false;
 
     try {
+      // Start the playback session inside the ON button's user gesture. Waiting
+      // for microphone permission first can make WebKit treat playback as
+      // autoplay and leave Yamabiko ON but silent.
+      const ctx = new AudioContext({ latencyHint: "interactive" });
+      ctxRef.current = ctx;
+      const monitorDestination = ctx.createMediaStreamDestination();
+      monitorDestinationRef.current = monitorDestination;
+      const monitorElement = document.createElement("audio");
+      monitorElement.autoplay = true;
+      monitorElement.srcObject = monitorDestination.stream;
+      monitorElement.hidden = true;
+      monitorElement.setAttribute("aria-hidden", "true");
+      document.body.append(monitorElement);
+      monitorElementRef.current = monitorElement;
+      await resumeMonitorPlayback(ctx, monitorElement);
+
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
           ...(selectedDeviceId ? { deviceId: { exact: selectedDeviceId } } : {}),
@@ -123,9 +157,7 @@ export function SoundButton(config: Props) {
       setActiveDeviceName(track.label || "名前を取得できないマイク");
       void refreshDevices();
 
-      const ctx = new AudioContext({ latencyHint: "interactive" });
-      ctxRef.current = ctx;
-      if (ctx.state === "suspended") await ctx.resume();
+      await resumePlayback(ctx);
       if (!mountedRef.current || generation !== generationRef.current) return;
 
       const source = ctx.createMediaStreamSource(stream);
@@ -139,7 +171,46 @@ export function SoundButton(config: Props) {
 
       source.connect(delay);
       delay.connect(gain);
-      gain.connect(ctx.destination);
+      gain.connect(monitorDestination);
+      const updatePlaybackState = () => {
+        if (!mountedRef.current || ctxRef.current !== ctx) return;
+        setPlaybackPaused(ctx.state !== "running" || monitorElement.paused);
+      };
+      const recoverAutomatically = () => {
+        if (!mountedRef.current || ctxRef.current !== ctx || playbackRecoveryRef.current) return;
+        const recovery = resumeMonitorPlayback(ctx, monitorElement)
+          .then(updatePlaybackState)
+          .catch(updatePlaybackState)
+          .finally(() => {
+            if (playbackRecoveryRef.current === recovery) playbackRecoveryRef.current = null;
+          });
+        playbackRecoveryRef.current = recovery;
+      };
+      const handleContextState = () => {
+        updatePlaybackState();
+        if (ctx.state !== "running") recoverAutomatically();
+      };
+      const handleMonitorPause = () => {
+        updatePlaybackState();
+        recoverAutomatically();
+      };
+      ctx.addEventListener("statechange", handleContextState);
+      monitorElement.addEventListener("playing", updatePlaybackState);
+      monitorElement.addEventListener("pause", handleMonitorPause);
+      monitorElement.addEventListener("ended", recoverAutomatically);
+      monitorElement.addEventListener("error", recoverAutomatically);
+      window.addEventListener("focus", recoverAutomatically);
+      document.addEventListener("visibilitychange", recoverAutomatically);
+      playbackCleanupRef.current = () => {
+        ctx.removeEventListener("statechange", handleContextState);
+        monitorElement.removeEventListener("playing", updatePlaybackState);
+        monitorElement.removeEventListener("pause", handleMonitorPause);
+        monitorElement.removeEventListener("ended", recoverAutomatically);
+        monitorElement.removeEventListener("error", recoverAutomatically);
+        window.removeEventListener("focus", recoverAutomatically);
+        document.removeEventListener("visibilitychange", recoverAutomatically);
+      };
+      updatePlaybackState();
       config.setIsOn(true);
     } catch (err) {
       if (!mountedRef.current || generation !== generationRef.current) return;
@@ -147,9 +218,9 @@ export function SoundButton(config: Props) {
       await stopMicThrough();
       if (!mountedRef.current) return;
       config.setIsOn(false);
-      if (acquired) {
+      if (acquired || !isDomException(err)) {
         config.setError("音声の初期化に失敗しました。マイクを解放しました。もう一度ONにしてください。");
-      } else if (isDomException(err)) {
+      } else {
         if (err.name === "NotAllowedError" || err.name === "SecurityError") {
           config.setError(`マイクの使用が許可されていません。macOSの「システム設定 > プライバシーとセキュリティ > マイク」でこのアプリをONにしてください。[${err.name}]`);
         } else if (err.name === "OverconstrainedError") {
@@ -162,14 +233,19 @@ export function SoundButton(config: Props) {
         } else {
           config.setError(`マイクの取得に失敗しました（${err.name}）。`);
         }
-      } else {
-        config.setError("マイクの取得に失敗しました。");
       }
     }
   }
 
   async function stopMicThrough() {
     ++generationRef.current;
+    playbackCleanupRef.current?.();
+    playbackCleanupRef.current = null;
+    playbackRecoveryRef.current = null;
+    if (mountedRef.current) {
+      setPlaybackPaused(false);
+      setPlaybackMessage("");
+    }
     trackCleanupRef.current?.();
     trackCleanupRef.current = null;
     activeChoiceRef.current = "";
@@ -190,6 +266,17 @@ export function SoundButton(config: Props) {
     } catch {}
     gainRef.current = null;
 
+    monitorDestinationRef.current = null;
+    const monitorElement = monitorElementRef.current;
+    monitorElementRef.current = null;
+    if (monitorElement) {
+      try {
+        monitorElement.pause();
+      } catch {}
+      monitorElement.srcObject = null;
+      monitorElement.remove();
+    }
+
     // マイク停止
     const stream = streamRef.current;
     if (stream) {
@@ -204,6 +291,31 @@ export function SoundButton(config: Props) {
       try {
         await ctx.close();
       } catch {}
+    }
+  }
+
+  async function recoverPlayback() {
+    const ctx = ctxRef.current;
+    const monitorElement = monitorElementRef.current;
+    if (!ctx || !monitorElement || busyRef.current) return;
+    busyRef.current = true;
+    setBusy(true);
+    config.onBusyChange?.(true);
+    setPlaybackMessage("");
+    try {
+      // Called directly from a user gesture; reuse the existing microphone.
+      await resumeMonitorPlayback(ctx, monitorElement);
+      if (mountedRef.current && ctxRef.current === ctx) setPlaybackPaused(false);
+    } catch {
+      if (mountedRef.current && ctxRef.current === ctx) {
+        setPlaybackMessage("再生を再開できませんでした。音声をOFFにして、出力先を確認してからONにしてください。");
+      }
+    } finally {
+      busyRef.current = false;
+      if (mountedRef.current) {
+        setBusy(false);
+        config.onBusyChange?.(false);
+      }
     }
   }
 
@@ -295,7 +407,29 @@ export function SoundButton(config: Props) {
         {config.isOn ? "ON" : "OFF"}
       </button>
 
-      <div className="w-64 text-left text-xs">
+      <details ref={microphonePanelRef} className="fixed bottom-3 left-3 z-20 text-left text-xs"
+        onKeyDown={(event) => {
+          event.stopPropagation();
+          if (event.key === "Escape") {
+            event.preventDefault();
+            if (microphonePanelRef.current) microphonePanelRef.current.open = false;
+            microphonePanelRef.current?.querySelector("summary")?.focus();
+          }
+        }}>
+        <summary aria-label="設定" title={activeDeviceName ? `設定（使用中：${activeDeviceName}）` : "設定"}
+          className="relative flex h-7 w-7 cursor-pointer list-none items-center justify-center rounded-full border-2 border-gray-400 text-gray-400 hover:bg-gray-100 hover:text-gray-700 [&::-webkit-details-marker]:hidden">
+          <Settings size={16} />
+          {(config.err || playbackPaused) && <span aria-label="音声の状態を確認" className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-amber-500" />}
+        </summary>
+        <div className="fixed inset-2 z-30 overflow-y-auto rounded-xl border border-gray-400 bg-white p-3 text-gray-900 shadow-lg dark:bg-[#2f2f2f] dark:text-white">
+        <div className="mb-2 flex items-center justify-between">
+          <span className="font-semibold">設定</span>
+          <button type="button" aria-label="設定を閉じる" className="px-2 text-lg leading-none"
+            onClick={() => {
+              if (microphonePanelRef.current) microphonePanelRef.current.open = false;
+              microphonePanelRef.current?.querySelector("summary")?.focus();
+            }}>×</button>
+        </div>
         <div className="mb-1 flex items-center justify-between">
           <label htmlFor="microphone-input">入力マイク</label>
           <button type="button" onClick={() => void refreshDevices()} className="underline"
@@ -316,8 +450,16 @@ export function SoundButton(config: Props) {
           {activeDeviceName ? `使用中：${activeDeviceName}` : "マイク停止中"}
         </p>
         {config.isOn && <p>変更するには音声をOFFにしてください。</p>}
+        {config.isOn && playbackPaused && <div className="mt-1" aria-live="polite">
+          <p>音声の再生が中断されています。</p>
+          <button type="button" disabled={busy || config.disabled} onClick={() => void recoverPlayback()}
+            className="rounded border px-2 py-1 disabled:opacity-50">音声を再開</button>
+        </div>}
+        {playbackMessage && <p aria-live="polite">{playbackMessage}</p>}
         {deviceMessage && <p className="mt-1" aria-live="polite">{deviceMessage}</p>}
-      </div>
+        {config.err && <p className="mt-1 text-amber-700 dark:text-amber-300" role="alert">{config.err}</p>}
+        </div>
+      </details>
     </div>
   );
 }

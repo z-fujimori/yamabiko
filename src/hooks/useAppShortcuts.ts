@@ -8,7 +8,7 @@ type Options = {
 export function useAppShortcuts({ onToggle, onOff }: Options) {
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.target instanceof Element && e.target.closest("button, input, textarea, select, [contenteditable='true']")) return;
+      if (e.target instanceof Element && e.target.closest("summary, details, button, input, textarea, select, [contenteditable='true']")) return;
       if (e.key === "Enter") {
         e.preventDefault();
         onToggle();
