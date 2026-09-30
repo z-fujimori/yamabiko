@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Mic } from "lucide-react";
+import { Settings } from "lucide-react";
 import { resumePlayback } from "../audio/resumePlayback";
 import { useAppShortcuts } from "../hooks/useAppShortcuts";
 
@@ -356,15 +356,15 @@ export function SoundButton(config: Props) {
             microphonePanelRef.current?.querySelector("summary")?.focus();
           }
         }}>
-        <summary aria-label="入力マイク設定" title={activeDeviceName ? `使用中：${activeDeviceName}` : "入力マイク設定"}
+        <summary aria-label="設定" title={activeDeviceName ? `設定（使用中：${activeDeviceName}）` : "設定"}
           className="relative flex h-7 w-7 cursor-pointer list-none items-center justify-center rounded-full border-2 border-gray-400 text-gray-400 hover:bg-gray-100 hover:text-gray-700 [&::-webkit-details-marker]:hidden">
-          <Mic size={16} />
+          <Settings size={16} />
           {(config.err || playbackPaused) && <span aria-label="音声の状態を確認" className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-amber-500" />}
         </summary>
         <div className="fixed inset-2 z-30 overflow-y-auto rounded-xl border border-gray-400 bg-white p-3 text-gray-900 shadow-lg dark:bg-[#2f2f2f] dark:text-white">
         <div className="mb-2 flex items-center justify-between">
-          <span className="font-semibold">マイク設定</span>
-          <button type="button" aria-label="マイク設定を閉じる" className="px-2 text-lg leading-none"
+          <span className="font-semibold">設定</span>
+          <button type="button" aria-label="設定を閉じる" className="px-2 text-lg leading-none"
             onClick={() => {
               if (microphonePanelRef.current) microphonePanelRef.current.open = false;
               microphonePanelRef.current?.querySelector("summary")?.focus();

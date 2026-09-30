@@ -170,7 +170,7 @@ describe("microphone coexistence and lifetime", () => {
 async function mountedView() {
   let view!: ReturnType<typeof render>;
   await act(async () => { view = render(<Harness />); });
-  fireEvent.click(screen.getByLabelText("入力マイク設定"));
+  fireEvent.click(screen.getByLabelText("設定"));
   return view;
 }
 async function selectUsb() {
@@ -350,7 +350,7 @@ describe("monitor playback recovery", () => {
 
  it("opens microphone settings on demand and closes with Escape without toggling audio", async () => {
    await act(async () => { render(<Harness />); });
-   const trigger = screen.getByLabelText("入力マイク設定");
+   const trigger = screen.getByLabelText("設定");
    const panel = trigger.closest("details")!;
    expect(panel.open).toBe(false);
    fireEvent.click(trigger);
