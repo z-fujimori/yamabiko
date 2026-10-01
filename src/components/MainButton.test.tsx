@@ -352,6 +352,7 @@ describe("monitor playback recovery", () => {
    expect(panel.open).toBe(false);
    fireEvent.click(trigger);
    expect(panel.open).toBe(true);
+   expect(screen.getByText(/^Yamabiko v\d+\.\d+\.\d+$/)).toBeTruthy();
    fireEvent.keyDown(screen.getByLabelText("入力マイク"), { key: "Enter" });
    expect(getUserMedia).not.toHaveBeenCalled();
    fireEvent.keyDown(screen.getByLabelText("入力マイク"), { key: "Escape" });

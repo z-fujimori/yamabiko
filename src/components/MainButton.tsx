@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Settings } from "lucide-react";
+import appPackage from "../../package.json";
 import { resumePlayback } from "../audio/resumePlayback";
 import { useAppShortcuts } from "../hooks/useAppShortcuts";
 
@@ -389,6 +390,9 @@ export function SoundButton(config: Props) {
         {playbackMessage && <p aria-live="polite">{playbackMessage}</p>}
         {deviceMessage && <p className="mt-1" aria-live="polite">{deviceMessage}</p>}
         {config.err && <p className="mt-1 text-amber-700 dark:text-amber-300" role="alert">{config.err}</p>}
+        <p className="mt-3 text-right text-[10px] text-gray-500 dark:text-gray-400">
+          Yamabiko v{appPackage.version}
+        </p>
         </div>
       </details>
     </div>
