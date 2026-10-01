@@ -17,6 +17,10 @@ const close = vi.fn();
 const resume = vi.fn();
 const connect = vi.fn();
 const disconnect = vi.fn();
+const oscillatorStart = vi.fn();
+const oscillatorStop = vi.fn(function (this: EventTarget) {
+  this.dispatchEvent(new Event("ended"));
+});
 let failAt = "";
 let contextState = "running";
 const stream = { getTracks: () => [track, { stop }], getAudioTracks: () => [track] } as unknown as MediaStream;
@@ -36,6 +40,16 @@ class FakeAudioContext extends EventTarget {
   createMediaStreamSource() {
     if (failAt === "source") throw new Error("source failed");
     return { connect, disconnect };
+  }
+  createOscillator() {
+    return Object.assign(new EventTarget(), {
+      type: "sine",
+      frequency: parameter(),
+      connect,
+      disconnect,
+      start: oscillatorStart,
+      stop: oscillatorStop,
+    });
   }
   createDelay() { return { connect, disconnect, delayTime: parameter() }; }
   createGain() { return { connect, disconnect, gain: parameter() }; }
@@ -170,6 +184,7 @@ async function mountedView() {
   let view!: ReturnType<typeof render>;
   await act(async () => { view = render(<Harness />); });
   fireEvent.click(screen.getByLabelText("設定"));
+  fireEvent.click(screen.getByRole("button", { name: /^マイク/ }));
   return view;
 }
 async function selectUsb() {
@@ -345,17 +360,34 @@ describe("monitor playback recovery", () => {
   });
 });
 
- it("opens microphone settings on demand and closes with Escape without toggling audio", async () => {
+ it("navigates settings pages and closes with Escape without toggling audio", async () => {
    await act(async () => { render(<Harness />); });
    const trigger = screen.getByLabelText("設定");
    const panel = trigger.closest("details")!;
    expect(panel.open).toBe(false);
    fireEvent.click(trigger);
    expect(panel.open).toBe(true);
+   expect(screen.getByRole("button", { name: /^マイク/ })).toBeTruthy();
+   expect(screen.getByRole("button", { name: /^スピーカーテスト/ })).toBeTruthy();
+   expect(screen.getByRole("button", { name: /^バージョン/ })).toBeTruthy();
    expect(screen.getByText(/^Yamabiko v\d+\.\d+\.\d+$/)).toBeTruthy();
+   fireEvent.click(screen.getByRole("button", { name: /^マイク/ }));
    fireEvent.keyDown(screen.getByLabelText("入力マイク"), { key: "Enter" });
    expect(getUserMedia).not.toHaveBeenCalled();
    fireEvent.keyDown(screen.getByLabelText("入力マイク"), { key: "Escape" });
    expect(panel.open).toBe(false);
    expect(document.activeElement).toBe(trigger);
+ });
+
+ it("plays a short speaker test tone and shows the version page", async () => {
+   await act(async () => { render(<Harness />); });
+   fireEvent.click(screen.getByLabelText("設定"));
+   fireEvent.click(screen.getByRole("button", { name: /^スピーカーテスト/ }));
+   await act(async () => { fireEvent.click(screen.getByRole("button", { name: "ビープ音を鳴らす" })); });
+   expect(oscillatorStart).toHaveBeenCalledTimes(1);
+   expect(oscillatorStop).toHaveBeenCalledTimes(1);
+   expect(screen.getByText("ビープ音を再生しました。")).toBeTruthy();
+   fireEvent.click(screen.getByRole("button", { name: "設定メニューに戻る" }));
+   fireEvent.click(screen.getByRole("button", { name: /^バージョン/ }));
+   expect(screen.getByText(/^v\d+\.\d+\.\d+$/)).toBeTruthy();
  });

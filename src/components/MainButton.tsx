@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Settings } from "lucide-react";
 import appPackage from "../../package.json";
 import { resumePlayback } from "../audio/resumePlayback";
+import { playSpeakerTestTone } from "../audio/testSpeaker";
 import { useAppShortcuts } from "../hooks/useAppShortcuts";
 
 type Props = {
@@ -15,12 +16,17 @@ type Props = {
   delaySec: number;
 };
 
+type SettingsPage = "menu" | "microphone" | "speaker" | "version";
+
 function isDomException(err: unknown): err is DOMException {
   return err instanceof DOMException;
 }
 
 export function SoundButton(config: Props) {
   const microphonePanelRef = useRef<HTMLDetailsElement | null>(null);
+  const [settingsPage, setSettingsPage] = useState<SettingsPage>("menu");
+  const [speakerTesting, setSpeakerTesting] = useState(false);
+  const [speakerTestMessage, setSpeakerTestMessage] = useState("");
   const [playbackPaused, setPlaybackPaused] = useState(false);
   const [playbackMessage, setPlaybackMessage] = useState("");
   const playbackCleanupRef = useRef<(() => void) | null>(null);
@@ -94,11 +100,36 @@ export function SoundButton(config: Props) {
   useEffect(() => {
     const closePanel = (event: PointerEvent) => {
       const panel = microphonePanelRef.current;
-      if (panel?.open && event.target instanceof Node && !panel.contains(event.target)) panel.open = false;
+      if (panel?.open && event.target instanceof Node && !panel.contains(event.target)) {
+        panel.open = false;
+        setSettingsPage("menu");
+        setSpeakerTestMessage("");
+      }
     };
     document.addEventListener("pointerdown", closePanel);
     return () => document.removeEventListener("pointerdown", closePanel);
   }, []);
+
+  function closeSettings() {
+    if (microphonePanelRef.current) microphonePanelRef.current.open = false;
+    setSettingsPage("menu");
+    setSpeakerTestMessage("");
+    microphonePanelRef.current?.querySelector("summary")?.focus();
+  }
+
+  async function testSpeaker() {
+    if (speakerTesting || config.disabled) return;
+    setSpeakerTesting(true);
+    setSpeakerTestMessage("");
+    try {
+      await playSpeakerTestTone();
+      if (mountedRef.current) setSpeakerTestMessage("ビープ音を再生しました。");
+    } catch {
+      if (mountedRef.current) setSpeakerTestMessage("音を再生できませんでした。出力先と音量を確認してください。");
+    } finally {
+      if (mountedRef.current) setSpeakerTesting(false);
+    }
+  }
 
   async function startMicThrough() {
     if (ctxRef.current) return;
@@ -344,24 +375,48 @@ export function SoundButton(config: Props) {
           event.stopPropagation();
           if (event.key === "Escape") {
             event.preventDefault();
-            if (microphonePanelRef.current) microphonePanelRef.current.open = false;
-            microphonePanelRef.current?.querySelector("summary")?.focus();
+            closeSettings();
           }
         }}>
         <summary aria-label="設定" title={activeDeviceName ? `設定（使用中：${activeDeviceName}）` : "設定"}
+          onClick={() => {
+            if (!microphonePanelRef.current?.open) {
+              setSettingsPage("menu");
+              setSpeakerTestMessage("");
+            }
+          }}
           className="relative flex h-7 w-7 cursor-pointer list-none items-center justify-center rounded-full border-2 border-gray-400 text-gray-400 hover:bg-gray-100 hover:text-gray-700 [&::-webkit-details-marker]:hidden">
           <Settings size={16} />
           {(config.err || playbackPaused) && <span aria-label="音声の状態を確認" className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-amber-500" />}
         </summary>
         <div className="fixed inset-2 z-30 overflow-y-auto rounded-xl border border-gray-400 bg-white p-3 text-gray-900 shadow-lg dark:bg-[#2f2f2f] dark:text-white">
         <div className="mb-2 flex items-center justify-between">
-          <span className="font-semibold">設定</span>
+          <div className="flex items-center gap-1">
+            {settingsPage !== "menu" && <button type="button" aria-label="設定メニューに戻る"
+              className="rounded px-2 py-1 text-base leading-none hover:bg-gray-100 dark:hover:bg-gray-700"
+              onClick={() => { setSettingsPage("menu"); setSpeakerTestMessage(""); }}>‹</button>}
+            <span className="font-semibold">
+              {settingsPage === "menu" ? "設定" : settingsPage === "microphone" ? "マイク" :
+                settingsPage === "speaker" ? "スピーカーテスト" : "バージョン"}
+            </span>
+          </div>
           <button type="button" aria-label="設定を閉じる" className="px-2 text-lg leading-none"
-            onClick={() => {
-              if (microphonePanelRef.current) microphonePanelRef.current.open = false;
-              microphonePanelRef.current?.querySelector("summary")?.focus();
-            }}>×</button>
+            onClick={closeSettings}>×</button>
         </div>
+        {settingsPage === "menu" && <div className="grid gap-1">
+          {([
+            ["microphone", "マイク", activeDeviceName || "入力デバイスを選択"],
+            ["speaker", "スピーカーテスト", "短いビープ音で出力を確認"],
+            ["version", "バージョン", `Yamabiko v${appPackage.version}`],
+          ] as const).map(([page, label, description]) =>
+            <button key={page} type="button" onClick={() => setSettingsPage(page)}
+              className="flex w-full items-center justify-between rounded-lg px-2 py-2 text-left hover:bg-gray-100 dark:hover:bg-gray-700">
+              <span><span className="block font-medium">{label}</span>
+                <span className="block text-[10px] text-gray-500 dark:text-gray-400">{description}</span></span>
+              <span aria-hidden="true" className="text-lg text-gray-400">›</span>
+            </button>)}
+        </div>}
+        {settingsPage === "microphone" && <>
         <div className="mb-1 flex items-center justify-between">
           <label htmlFor="microphone-input">入力マイク</label>
           <button type="button" onClick={() => void refreshDevices()} className="underline"
@@ -390,9 +445,19 @@ export function SoundButton(config: Props) {
         {playbackMessage && <p aria-live="polite">{playbackMessage}</p>}
         {deviceMessage && <p className="mt-1" aria-live="polite">{deviceMessage}</p>}
         {config.err && <p className="mt-1 text-amber-700 dark:text-amber-300" role="alert">{config.err}</p>}
-        <p className="mt-3 text-right text-[10px] text-gray-500 dark:text-gray-400">
-          Yamabiko v{appPackage.version}
-        </p>
+        </>}
+        {settingsPage === "speaker" && <div className="grid justify-items-center gap-3 py-4 text-center">
+          <p>短いビープ音を鳴らして、現在のスピーカー出力を確認します。</p>
+          <button type="button" disabled={speakerTesting || config.disabled} onClick={() => void testSpeaker()}
+            className="rounded-lg border border-gray-400 px-4 py-2 font-medium hover:bg-gray-100 disabled:opacity-50 dark:hover:bg-gray-700">
+            {speakerTesting ? "再生中…" : "ビープ音を鳴らす"}
+          </button>
+          {speakerTestMessage && <p aria-live="polite">{speakerTestMessage}</p>}
+        </div>}
+        {settingsPage === "version" && <div className="grid justify-items-center gap-1 py-8">
+          <span className="text-sm font-semibold">Yamabiko</span>
+          <span className="text-lg">v{appPackage.version}</span>
+        </div>}
         </div>
       </details>
     </div>
