@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Settings } from "lucide-react";
-import { resumeMonitorPlayback, resumePlayback } from "../audio/resumePlayback";
+import { resumePlayback } from "../audio/resumePlayback";
 import { useAppShortcuts } from "../hooks/useAppShortcuts";
 
 type Props = {
@@ -23,7 +23,6 @@ export function SoundButton(config: Props) {
   const [playbackPaused, setPlaybackPaused] = useState(false);
   const [playbackMessage, setPlaybackMessage] = useState("");
   const playbackCleanupRef = useRef<(() => void) | null>(null);
-  const playbackRecoveryRef = useRef<Promise<void> | null>(null);
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
   const [selectedDeviceId, setSelectedDeviceId] = useState("");
   const [activeDeviceName, setActiveDeviceName] = useState("");
@@ -37,8 +36,6 @@ export function SoundButton(config: Props) {
   const streamRef = useRef<MediaStream | null>(null);
   const gainRef = useRef<GainNode | null>(null);
   const delayRef = useRef<DelayNode | null>(null);
-  const monitorDestinationRef = useRef<MediaStreamAudioDestinationNode | null>(null);
-  const monitorElementRef = useRef<HTMLAudioElement | null>(null);
 
   // State alone does not prevent two shortcut events in the same render.
   const busyRef = useRef(false);
@@ -109,31 +106,8 @@ export function SoundButton(config: Props) {
     let acquired = false;
 
     try {
-      // Start the playback session inside the ON button's user gesture. Waiting
-      // for microphone permission first can make WebKit treat playback as
-      // autoplay and leave Yamabiko ON but silent.
-      const ctx = new AudioContext({ latencyHint: "interactive" });
-      ctxRef.current = ctx;
-      const monitorDestination = ctx.createMediaStreamDestination();
-      monitorDestinationRef.current = monitorDestination;
-      const monitorElement = document.createElement("audio");
-      monitorElement.autoplay = true;
-      monitorElement.srcObject = monitorDestination.stream;
-      monitorElement.hidden = true;
-      monitorElement.setAttribute("aria-hidden", "true");
-      document.body.append(monitorElement);
-      monitorElementRef.current = monitorElement;
-      await resumeMonitorPlayback(ctx, monitorElement);
-
       const stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          ...(selectedDeviceId ? { deviceId: { exact: selectedDeviceId } } : {}),
-          // WebKit voice processing can attenuate other apps' microphone input.
-          // https://bugs.webkit.org/show_bug.cgi?id=294623
-          echoCancellation: false,
-          noiseSuppression: false,
-          autoGainControl: false,
-        },
+        audio: selectedDeviceId ? { deviceId: { exact: selectedDeviceId } } : true,
       });
       // Permission may resolve after this component has been disposed.
       if (!mountedRef.current || generation !== generationRef.current) {
@@ -157,6 +131,8 @@ export function SoundButton(config: Props) {
       setActiveDeviceName(track.label || "名前を取得できないマイク");
       void refreshDevices();
 
+      const ctx = new AudioContext({ latencyHint: "interactive" });
+      ctxRef.current = ctx;
       await resumePlayback(ctx);
       if (!mountedRef.current || generation !== generationRef.current) return;
 
@@ -171,45 +147,13 @@ export function SoundButton(config: Props) {
 
       source.connect(delay);
       delay.connect(gain);
-      gain.connect(monitorDestination);
+      gain.connect(ctx.destination);
       const updatePlaybackState = () => {
         if (!mountedRef.current || ctxRef.current !== ctx) return;
-        setPlaybackPaused(ctx.state !== "running" || monitorElement.paused);
+        setPlaybackPaused(ctx.state !== "running");
       };
-      const recoverAutomatically = () => {
-        if (!mountedRef.current || ctxRef.current !== ctx || playbackRecoveryRef.current) return;
-        const recovery = resumeMonitorPlayback(ctx, monitorElement)
-          .then(updatePlaybackState)
-          .catch(updatePlaybackState)
-          .finally(() => {
-            if (playbackRecoveryRef.current === recovery) playbackRecoveryRef.current = null;
-          });
-        playbackRecoveryRef.current = recovery;
-      };
-      const handleContextState = () => {
-        updatePlaybackState();
-        if (ctx.state !== "running") recoverAutomatically();
-      };
-      const handleMonitorPause = () => {
-        updatePlaybackState();
-        recoverAutomatically();
-      };
-      ctx.addEventListener("statechange", handleContextState);
-      monitorElement.addEventListener("playing", updatePlaybackState);
-      monitorElement.addEventListener("pause", handleMonitorPause);
-      monitorElement.addEventListener("ended", recoverAutomatically);
-      monitorElement.addEventListener("error", recoverAutomatically);
-      window.addEventListener("focus", recoverAutomatically);
-      document.addEventListener("visibilitychange", recoverAutomatically);
-      playbackCleanupRef.current = () => {
-        ctx.removeEventListener("statechange", handleContextState);
-        monitorElement.removeEventListener("playing", updatePlaybackState);
-        monitorElement.removeEventListener("pause", handleMonitorPause);
-        monitorElement.removeEventListener("ended", recoverAutomatically);
-        monitorElement.removeEventListener("error", recoverAutomatically);
-        window.removeEventListener("focus", recoverAutomatically);
-        document.removeEventListener("visibilitychange", recoverAutomatically);
-      };
+      ctx.addEventListener("statechange", updatePlaybackState);
+      playbackCleanupRef.current = () => ctx.removeEventListener("statechange", updatePlaybackState);
       updatePlaybackState();
       config.setIsOn(true);
     } catch (err) {
@@ -241,7 +185,6 @@ export function SoundButton(config: Props) {
     ++generationRef.current;
     playbackCleanupRef.current?.();
     playbackCleanupRef.current = null;
-    playbackRecoveryRef.current = null;
     if (mountedRef.current) {
       setPlaybackPaused(false);
       setPlaybackMessage("");
@@ -266,17 +209,6 @@ export function SoundButton(config: Props) {
     } catch {}
     gainRef.current = null;
 
-    monitorDestinationRef.current = null;
-    const monitorElement = monitorElementRef.current;
-    monitorElementRef.current = null;
-    if (monitorElement) {
-      try {
-        monitorElement.pause();
-      } catch {}
-      monitorElement.srcObject = null;
-      monitorElement.remove();
-    }
-
     // マイク停止
     const stream = streamRef.current;
     if (stream) {
@@ -296,15 +228,14 @@ export function SoundButton(config: Props) {
 
   async function recoverPlayback() {
     const ctx = ctxRef.current;
-    const monitorElement = monitorElementRef.current;
-    if (!ctx || !monitorElement || busyRef.current) return;
+    if (!ctx || busyRef.current) return;
     busyRef.current = true;
     setBusy(true);
     config.onBusyChange?.(true);
     setPlaybackMessage("");
     try {
       // Called directly from a user gesture; reuse the existing microphone.
-      await resumeMonitorPlayback(ctx, monitorElement);
+      await resumePlayback(ctx);
       if (mountedRef.current && ctxRef.current === ctx) setPlaybackPaused(false);
     } catch {
       if (mountedRef.current && ctxRef.current === ctx) {
